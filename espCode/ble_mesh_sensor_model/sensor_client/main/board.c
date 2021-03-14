@@ -12,7 +12,7 @@
 #include "iot_button.h"
 #include "esp_ble_mesh_sensor_model_api.h"
 
-#define TAG "BLE-Board-client"
+#define TAG "BOARD"
 
 #define BUTTON_IO_NUM           0
 #define BUTTON_ACTIVE_LEVEL     0

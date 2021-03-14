@@ -23,9 +23,9 @@
 #include "ble_mesh_example_init.h"
 #include "board.h"
 
-#define TAG "Ble_server"
+#define TAG "EXAMPLE"
 
-#define CID_ESP 0x02E5
+#define CID_ESP     0x02E5
 
 /* Sensor Property ID */
 #define SENSOR_PROPERTY_ID_0        0x0056  /* Present Indoor Ambient Temperature */

@@ -22,7 +22,7 @@
 #include "ble_mesh_example_init.h"
 #include "board.h"
 
-#define TAG "Ble_client"
+#define TAG "EXAMPLE"
 
 #define CID_ESP             0x02E5
 
@@ -41,27 +41,16 @@
 #define COMP_DATA_1_OCTET(msg, offset)      (msg[offset])
 #define COMP_DATA_2_OCTET(msg, offset)      (msg[offset + 1] << 8 | msg[offset])
 
-static uint8_t  dev_uuid[ESP_BLE_MESH_OCTET16_LEN]; // uuid del dispositivo, es como la "IP"
-
-// No sabemos la direccion del servicio de primeras. No hemos sido provisionados
+static uint8_t  dev_uuid[ESP_BLE_MESH_OCTET16_LEN];
 static uint16_t server_address = ESP_BLE_MESH_ADDR_UNASSIGNED;
 static uint16_t sensor_prop_id;
 
-/*
-    Struct que maneja las claves.
-    - net_idx:
-    - app_idx:
-    - app_key:
-*/
 static struct esp_ble_mesh_key {
     uint16_t net_idx;
     uint16_t app_idx;
     uint8_t  app_key[ESP_BLE_MESH_OCTET16_LEN];
 } prov_key;
 
-/*
-    Contexto del modelo servidor
-*/
 static esp_ble_mesh_cfg_srv_t config_server = {
     .beacon = ESP_BLE_MESH_BEACON_DISABLED,
 #if defined(CONFIG_BLE_MESH_FRIEND)
@@ -78,46 +67,28 @@ static esp_ble_mesh_cfg_srv_t config_server = {
 static esp_ble_mesh_client_t config_client;
 static esp_ble_mesh_client_t sensor_client;
 
-/*
-    Root models. Modelos que no extienden otros existentes
-    - config_server: Modelo servidor
-    - config_client: Modelos cliente
-    - sensor_client: Modelo sensor
-*/
 static esp_ble_mesh_model_t root_models[] = {
     ESP_BLE_MESH_MODEL_CFG_SRV(&config_server),
     ESP_BLE_MESH_MODEL_CFG_CLI(&config_client),
     ESP_BLE_MESH_MODEL_SENSOR_CLI(NULL, &sensor_client),
 };
 
-/*
-    Struct que define el numero de elementos que vamos a manejar
-*/
 static esp_ble_mesh_elem_t elements[] = {
     ESP_BLE_MESH_ELEMENT(0, root_models, ESP_BLE_MESH_MODEL_NONE),
 };
 
-/*
-    Composicion del nodo
-*/
 static esp_ble_mesh_comp_t composition = {
     .cid = CID_ESP,
     .elements = elements,
     .element_count = ARRAY_SIZE(elements),
 };
 
-/*
-    Informacion de provision
-*/
 static esp_ble_mesh_prov_t provision = {
     .prov_uuid          = dev_uuid,
     .prov_unicast_addr  = PROV_OWN_ADDR,
     .prov_start_address = 0x0005,
 };
 
-/*
-    Funcion que prepara un mensaje para enviar¿?
-*/
 static void example_ble_mesh_set_msg_common(esp_ble_mesh_client_common_param_t *common,
                                             esp_ble_mesh_node_t *node,
                                             esp_ble_mesh_model_t *model, uint32_t opcode)
@@ -133,9 +104,6 @@ static void example_ble_mesh_set_msg_common(esp_ble_mesh_client_common_param_t *
     common->msg_role = MSG_ROLE;
 }
 
-/*
-    Funcion que se llama cuando se finaliza el provisionamiento
-*/
 static esp_err_t prov_complete(uint16_t node_index, const esp_ble_mesh_octet16_t uuid,
                                uint16_t primary_addr, uint8_t element_num, uint16_t net_idx)
 {
@@ -175,10 +143,6 @@ static esp_err_t prov_complete(uint16_t node_index, const esp_ble_mesh_octet16_t
     return ESP_OK;
 }
 
-/*
-    Funcion que se lanza cuando se recibe un beacon de un dispositivo que no ha sido provisionado
-    Esta asociado al evento ESP_BLE_MESH_PROVISIONER_RECV_UNPROV_ADV_PKT_EVT
-*/
 static void recv_unprov_adv_pkt(uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN], uint8_t addr[BD_ADDR_LEN],
                                 esp_ble_mesh_addr_type_t addr_type, uint16_t oob_info,
                                 uint8_t adv_type, esp_ble_mesh_prov_bearer_t bearer)
@@ -210,9 +174,6 @@ static void recv_unprov_adv_pkt(uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN], uint
     }
 }
 
-/*
-    Callback para el proceso de provisionamiento
-*/
 static void example_ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
                                              esp_ble_mesh_prov_cb_param_t *param)
 {
@@ -226,13 +187,13 @@ static void example_ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
     case ESP_BLE_MESH_PROVISIONER_PROV_DISABLE_COMP_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_PROV_DISABLE_COMP_EVT, err_code %d", param->provisioner_prov_disable_comp.err_code);
         break;
-    case ESP_BLE_MESH_PROVISIONER_RECV_UNPROV_ADV_PKT_EVT: // Evento que se lanza cuando un dispositivo le manda un beacon diciendole que no esta provisionado
+    case ESP_BLE_MESH_PROVISIONER_RECV_UNPROV_ADV_PKT_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_RECV_UNPROV_ADV_PKT_EVT");
         recv_unprov_adv_pkt(param->provisioner_recv_unprov_adv_pkt.dev_uuid, param->provisioner_recv_unprov_adv_pkt.addr,
                             param->provisioner_recv_unprov_adv_pkt.addr_type, param->provisioner_recv_unprov_adv_pkt.oob_info,
                             param->provisioner_recv_unprov_adv_pkt.adv_type, param->provisioner_recv_unprov_adv_pkt.bearer);
         break;
-    case ESP_BLE_MESH_PROVISIONER_PROV_LINK_OPEN_EVT: // El provisionador establece un link BLE Mesh
+    case ESP_BLE_MESH_PROVISIONER_PROV_LINK_OPEN_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_PROV_LINK_OPEN_EVT, bearer %s",
             param->provisioner_prov_link_open.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
         break;
@@ -251,7 +212,7 @@ static void example_ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
     case ESP_BLE_MESH_PROVISIONER_SET_DEV_UUID_MATCH_COMP_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_SET_DEV_UUID_MATCH_COMP_EVT, err_code %d", param->provisioner_set_dev_uuid_match_comp.err_code);
         break;
-    case ESP_BLE_MESH_PROVISIONER_SET_NODE_NAME_COMP_EVT: // El provisionador pone nombre al nodo con exito
+    case ESP_BLE_MESH_PROVISIONER_SET_NODE_NAME_COMP_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_SET_NODE_NAME_COMP_EVT, err_code %d", param->provisioner_set_node_name_comp.err_code);
         if (param->provisioner_set_node_name_comp.err_code == 0) {
             const char *name = esp_ble_mesh_provisioner_get_node_name(param->provisioner_set_node_name_comp.node_index);
@@ -260,15 +221,10 @@ static void example_ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
             }
         }
         break;
-    case ESP_BLE_MESH_PROVISIONER_ADD_LOCAL_APP_KEY_COMP_EVT: // El provisionador añade una clave de aplicacion local
+    case ESP_BLE_MESH_PROVISIONER_ADD_LOCAL_APP_KEY_COMP_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_ADD_LOCAL_APP_KEY_COMP_EVT, err_code %d", param->provisioner_add_app_key_comp.err_code);
         if (param->provisioner_add_app_key_comp.err_code == 0) {
-            prov_key.app_idx = param->provisioner_add_app_key_comp.app_idx; // se guarda la clave de aplicacion
-
-            /*
-                Esta funcion es llamada por el provisionador.
-                Se asocia el modelo con la clave de aplicacion
-            */
+            prov_key.app_idx = param->provisioner_add_app_key_comp.app_idx;
             esp_err_t err = esp_ble_mesh_provisioner_bind_app_key_to_local_model(PROV_OWN_ADDR, prov_key.app_idx,
                                 ESP_BLE_MESH_MODEL_ID_SENSOR_CLI, ESP_BLE_MESH_CID_NVAL);
             if (err != ESP_OK) {
@@ -325,15 +281,6 @@ static void example_ble_mesh_parse_node_comp_data(const uint8_t *data, uint16_t 
     ESP_LOGI(TAG, "*********************** Composition Data End ***********************");
 }
 
-/*
-    Configuracion del cliente
-
-    Notas:
-        - ctx tiene el contexto.
-            - Clave de aplicacion.
-            - Clave de red.
-            - Direccion que envia el mensaje
-*/
 static void example_ble_mesh_config_client_cb(esp_ble_mesh_cfg_client_cb_event_t event,
                                               esp_ble_mesh_cfg_client_cb_param_t *param)
 {
@@ -351,7 +298,6 @@ static void example_ble_mesh_config_client_cb(esp_ble_mesh_cfg_client_cb_event_t
         return;
     }
 
-    // Esta funcion pide al nodo informacion sobre el mismo
     node = esp_ble_mesh_provisioner_get_node_with_addr(param->params->ctx.addr);
     if (!node) {
         ESP_LOGE(TAG, "Node 0x%04x not exists", param->params->ctx.addr);
@@ -360,13 +306,11 @@ static void example_ble_mesh_config_client_cb(esp_ble_mesh_cfg_client_cb_event_t
 
     switch (event) {
     case ESP_BLE_MESH_CFG_CLIENT_GET_STATE_EVT:
-        if (param->params->opcode == ESP_BLE_MESH_MODEL_OP_COMPOSITION_DATA_GET) { // PREGUNTAR: que es el composition data
+        if (param->params->opcode == ESP_BLE_MESH_MODEL_OP_COMPOSITION_DATA_GET) {
             ESP_LOG_BUFFER_HEX("Composition data", param->status_cb.comp_data_status.composition_data->data,
                 param->status_cb.comp_data_status.composition_data->len);
             example_ble_mesh_parse_node_comp_data(param->status_cb.comp_data_status.composition_data->data,
                 param->status_cb.comp_data_status.composition_data->len);
-
-            // Esta funcion guarda el composition data del nodo
             err = esp_ble_mesh_provisioner_store_node_comp_data(param->params->ctx.addr,
                 param->status_cb.comp_data_status.composition_data->data,
                 param->status_cb.comp_data_status.composition_data->len);
@@ -469,14 +413,6 @@ static void example_ble_mesh_config_client_cb(esp_ble_mesh_cfg_client_cb_event_t
     }
 }
 
-/*
-    Funcion para enviar un mensaje de tipo sensor
-
-    La llamada a get_state realmente lo que hace es
-    coger el estado del elemento
-
-    PREGUNTAR: funcionamiento del switch por lo de sensor_prop_id
-*/
 void example_ble_mesh_send_sensor_message(uint32_t opcode)
 {
     esp_ble_mesh_sensor_client_get_state_t get = {0};
@@ -511,10 +447,6 @@ void example_ble_mesh_send_sensor_message(uint32_t opcode)
     }
 }
 
-
-/*
-    Esta funcion salta si hay algun timeout al mandar un mensaje
-*/
 static void example_ble_mesh_sensor_timeout(uint32_t opcode)
 {
     switch (opcode) {
@@ -553,14 +485,6 @@ static void example_ble_mesh_sensor_timeout(uint32_t opcode)
     example_ble_mesh_send_sensor_message(opcode);
 }
 
-/*
-    NOTA
-    El data format es porque se puede almacenar en una variable varias mediciones en el sensor model
-*/
-
-/*
-
-*/
 static void example_ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t event,
                                               esp_ble_mesh_sensor_client_cb_param_t *param)
 {
