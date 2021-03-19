@@ -130,7 +130,7 @@ void si7021_task_read_temperature(void* params){
 
             bytes = (sensor_data_h << 8 | sensor_data_l);
             float temp = regularize_temperature(bytes);
-            ESP_LOGW(TAG, "temp val: %.02f [ºC]", temp);
+            ESP_LOGD(TAG, "temp val: %.02f [ºC]", temp);
 
             insert_data(temp);
         } else {

@@ -9,7 +9,6 @@
 #include "esp_ble_mesh_provisioning_api.h"
 #include "esp_ble_mesh_config_model_api.h"
 #include "esp_ble_mesh_sensor_model_api.h"
-
 #include "ble_mesh_example_init.h"
 
 #include "source/sensor_model_server.h"
@@ -572,7 +571,13 @@ static void ble_mesh_sensor_server_cb(esp_ble_mesh_sensor_server_cb_event_t even
 
 esp_err_t ble_mesh_init(void){
 
-    esp_err_t err;
+    esp_err_t err = ESP_OK;
+
+    err = bluetooth_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp32_bluetooth_init failed (err %d)", err);
+        return err;
+    }
 
     ble_mesh_get_dev_uuid(dev_uuid);
 

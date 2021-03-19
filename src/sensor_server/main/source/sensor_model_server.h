@@ -1,5 +1,5 @@
-#ifndef SENSOR_MODEL_SERVER
-#define SENSOR_MODEL_SERVER
+#ifndef _SENSOR_MODEL_SERVER_H_
+#define _SENSOR_MODEL_SERVER_H_
 
 #include "esp_log.h"
 
