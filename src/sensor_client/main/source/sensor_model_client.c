@@ -533,7 +533,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                     param->status_cb.setting_status.sensor_setting_raw->len);
             }
             break;
-        case ESP_BLE_MESH_MODEL_OP_SENSOR_GET:
+        case ESP_BLE_MESH_MODEL_OP_SENSOR_GET: /* Read temperature */
             ESP_LOGI(TAG, "Sensor Status, opcode 0x%04x", param->params->ctx.recv_op);
             if (param->status_cb.sensor_status.marshalled_sensor_data->len) {
                 ESP_LOG_BUFFER_HEX("Sensor Data", param->status_cb.sensor_status.marshalled_sensor_data->data,
@@ -550,6 +550,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                         fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ? "A" : "B", data_len, prop_id);
                     if (data_len != ESP_BLE_MESH_SENSOR_DATA_ZERO_LEN) {
                         ESP_LOG_BUFFER_HEX("Sensor Data", data + mpid_len, data_len + 1);
+                        ESP_LOGW(TAG, "Temperature %d", *(data + mpid_len));
                         length += mpid_len + data_len + 1;
                         data += mpid_len + data_len + 1;
                     } else {
