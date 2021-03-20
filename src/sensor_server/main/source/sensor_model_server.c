@@ -12,6 +12,7 @@
 #include "ble_mesh_example_init.h"
 
 #include "source/sensor_model_server.h"
+#include "source/si7021_i2c.h"
 
 static const char* TAG = "SensorServer";
 
@@ -19,15 +20,15 @@ static const char* TAG = "SensorServer";
 
 /* Sensor Property ID */
 #define SENSOR_PROPERTY_ID_0        0x0056  /* Present Indoor Ambient Temperature */
-#define SENSOR_PROPERTY_ID_1        0x005B  /* Present Outdoor Ambient Temperature */
+//#define SENSOR_PROPERTY_ID_1        0x005B  /* Present Outdoor Ambient Temperature */
 
 /* The characteristic of the two device properties is "Temperature 8", which is
  * used to represent a measure of temperature with a unit of 0.5 degree Celsius.
  * Minimum value: -64.0, maximum value: 63.5.
  * A value of 0xFF represents 'value is not known'.
  */
-static int8_t indoor_temp = 40;     /* Indoor temperature is 20 Degrees Celsius */
-static int8_t outdoor_temp = 60;    /* Outdoor temperature is 30 Degrees Celsius */
+// static int8_t indoor_temp = 40;     /* Indoor temperature is 20 Degrees Celsius */
+// static int8_t outdoor_temp = 60;    /* Outdoor temperature is 30 Degrees Celsius */
 
 #define SENSOR_POSITIVE_TOLERANCE   ESP_BLE_MESH_SENSOR_UNSPECIFIED_POS_TOLERANCE
 #define SENSOR_NEGATIVE_TOLERANCE   ESP_BLE_MESH_SENSOR_UNSPECIFIED_NEG_TOLERANCE
@@ -56,10 +57,9 @@ static esp_ble_mesh_cfg_srv_t config_server = {
     .relay_retransmit = ESP_BLE_MESH_TRANSMIT(2, 20),
 };
 
-NET_BUF_SIMPLE_DEFINE_STATIC(sensor_data_0, 1);
-NET_BUF_SIMPLE_DEFINE_STATIC(sensor_data_1, 1);
+NET_BUF_SIMPLE_DEFINE_STATIC(temp_sensor_data, 1);
 
-static esp_ble_mesh_sensor_state_t sensor_states[2] = {
+static esp_ble_mesh_sensor_state_t sensor_states[1] = {
     /* Mesh Model Spec:
      * Multiple instances of the Sensor states may be present within the same model,
      * provided that each instance has a unique value of the Sensor Property ID to
@@ -85,19 +85,8 @@ static esp_ble_mesh_sensor_state_t sensor_states[2] = {
         .descriptor.update_interval = SENSOR_UPDATE_INTERVAL,
         .sensor_data.format = ESP_BLE_MESH_SENSOR_DATA_FORMAT_A,
         .sensor_data.length = 0, /* 0 represents the length is 1 */
-        .sensor_data.raw_value = &sensor_data_0,
-    },
-    [1] = {
-        .sensor_property_id = SENSOR_PROPERTY_ID_1,
-        .descriptor.positive_tolerance = SENSOR_POSITIVE_TOLERANCE,
-        .descriptor.negative_tolerance = SENSOR_NEGATIVE_TOLERANCE,
-        .descriptor.sampling_function = SENSOR_SAMPLE_FUNCTION,
-        .descriptor.measure_period = SENSOR_MEASURE_PERIOD,
-        .descriptor.update_interval = SENSOR_UPDATE_INTERVAL,
-        .sensor_data.format = ESP_BLE_MESH_SENSOR_DATA_FORMAT_A,
-        .sensor_data.length = 0, /* 0 represents the length is 1 */
-        .sensor_data.raw_value = &sensor_data_1,
-    },
+        .sensor_data.raw_value = &temp_sensor_data,
+    }
 };
 
 /* 20 octets is large enough to hold two Sensor Descriptor state values. */
@@ -143,8 +132,7 @@ static void prov_complete(uint16_t net_idx, uint16_t addr, uint8_t flags, uint32
     ESP_LOGI(TAG, "flags 0x%02x, iv_index 0x%08x", flags, iv_index);
 
     /* Initialize the indoor and outdoor temperatures for each sensor.  */
-    net_buf_simple_add_u8(&sensor_data_0, indoor_temp);
-    net_buf_simple_add_u8(&sensor_data_1, outdoor_temp);
+    net_buf_simple_add_u8(&temp_sensor_data, 0);
 }
 
 static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event, esp_ble_mesh_prov_cb_param_t *param){
@@ -354,6 +342,13 @@ static uint16_t ble_mesh_get_sensor_data(esp_ble_mesh_sensor_state_t *state, uin
         ESP_LOGE(TAG, "%s, Invalid parameter", __func__);
         return 0;
     }
+
+    uint8_t temp = get_mean_temperature_data();
+    ESP_LOGW(TAG, "Temperature: %d", temp);
+
+    net_buf_simple_pull_u8(&temp_sensor_data);
+    //net_buf_simple_reset(&temp_sensor_data);
+    net_buf_simple_push_u8(&temp_sensor_data, temp);
 
     if (state->sensor_data.length == ESP_BLE_MESH_SENSOR_DATA_ZERO_LEN) {
         /* For zero-length sensor data, the length is 0x7F, and the format is Format B. */

@@ -16,6 +16,6 @@ void si7021_task_read_temperature(void* params);
 /**
  *  @brief get mean temperature data
  */
-float get_mean_temperature_data();
+uint8_t get_mean_temperature_data();
 
 #endif

@@ -144,7 +144,7 @@ void si7021_task_read_temperature(void* params){
 /**
  *  @brief get mean temperature data
  */
-float get_mean_temperature_data(){
+uint8_t get_mean_temperature_data(){
     while(xSemaphoreTake(xSem_circular_buffer, ( TickType_t ) 10 ) != pdTRUE);
     int index = (last_index + SIZE - 1) % SIZE;
     int samples = 0;
@@ -155,5 +155,5 @@ float get_mean_temperature_data(){
         samples++;
     }
     xSemaphoreGive(xSem_circular_buffer);
-    return result / samples;
+    return (uint8_t)(result / samples);
 }
