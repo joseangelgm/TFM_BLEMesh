@@ -26,11 +26,13 @@ static uint32_t send_opcode[] = {
     [3] = ESP_BLE_MESH_MODEL_OP_SENSOR_GET,
     [4] = ESP_BLE_MESH_MODEL_OP_SENSOR_SERIES_GET,
 };
-static uint8_t press_count;
+
+//static uint8_t press_count;
 
 static void button_tap_cb(void* arg){
-    ble_mesh_send_sensor_message(send_opcode[press_count++]);
-    press_count = press_count % ARRAY_SIZE(send_opcode);
+    //ble_mesh_send_sensor_message(send_opcode[press_count++]);
+    //press_count = press_count % ARRAY_SIZE(send_opcode);
+    ble_mesh_send_sensor_message(send_opcode[3]); //ESP_BLE_MESH_MODEL_OP_SENSOR_GET
 }
 
 static void board_button_init(void){
