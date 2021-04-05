@@ -36,7 +36,7 @@ static const char* TAG = "SensorServer";
 #define SENSOR_MEASURE_PERIOD       ESP_BLE_MESH_SENSOR_NOT_APPL_MEASURE_PERIOD
 #define SENSOR_UPDATE_INTERVAL      ESP_BLE_MESH_SENSOR_NOT_APPL_UPDATE_INTERVAL
 
-static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = { 0x32, 0x10 };
+static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = { 0x00, 0x22 };
 
 static esp_ble_mesh_cfg_srv_t config_server = {
     .relay = ESP_BLE_MESH_RELAY_ENABLED,
@@ -582,6 +582,7 @@ esp_err_t ble_mesh_init(void){
 
     //ESP_BLE_HOST_STATUS_CHECK(ESP_BLE_HOST_STATUS_ENABLED); // Parece que es esto!! Se llama en esp_ble_mesh_init
 
+    // Codigo de testing para saber como esta el bluetooth
     ESP_LOGW(TAG, "STATUS: Enabled %d, Initialize %d, Unitialize %d", ESP_BLUEDROID_STATUS_ENABLED,ESP_BLUEDROID_STATUS_INITIALIZED, ESP_BLUEDROID_STATUS_UNINITIALIZED);
     ESP_LOGW(TAG, "STATUS %d", esp_bluedroid_get_status());
 
