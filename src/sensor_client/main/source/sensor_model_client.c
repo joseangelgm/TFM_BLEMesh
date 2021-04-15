@@ -29,20 +29,10 @@ static const char* TAG = "SensorClient";
 
 #define CID_ESP             0x02E5
 
-#define PROV_OWN_ADDR       0x0001
-
 #define MSG_SEND_TTL        3
 #define MSG_SEND_REL        false
 #define MSG_TIMEOUT         0
 #define MSG_ROLE            ROLE_NODE
-
-#define COMP_DATA_PAGE_0    0x00
-
-#define APP_KEY_IDX         0x0000
-#define APP_KEY_OCTET       0x12
-
-#define COMP_DATA_1_OCTET(msg, offset)      (msg[offset])
-#define COMP_DATA_2_OCTET(msg, offset)      (msg[offset + 1] << 8 | msg[offset])
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = { 0x00, 0x11 };
 static uint16_t sensor_prop_id;
@@ -96,7 +86,7 @@ static void ble_mesh_set_msg_common(esp_ble_mesh_client_common_param_t *common,
     common->model = model;
     common->ctx.net_idx = prov_key.net_idx;
     common->ctx.app_idx = prov_key.app_idx;
-    common->ctx.addr = 0xFFFF, // Pregunta a todos los nodos. Cambiar a la direccion del servidor (dev_uuid)
+    common->ctx.addr = 0xC000,
     common->ctx.send_ttl = MSG_SEND_TTL;
     common->ctx.send_rel = MSG_SEND_REL;
     common->msg_timeout = MSG_TIMEOUT;
@@ -332,6 +322,11 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
             break;
         }
         break;
+    /*
+        Si los datos se piden a una direccion de grupo (suscripcion)
+        Los grupos en realidad es una suscripcion por lo que entrada por
+        este evento.
+    */
     case ESP_BLE_MESH_SENSOR_CLIENT_PUBLISH_EVT:
         break;
     case ESP_BLE_MESH_SENSOR_CLIENT_TIMEOUT_EVT:
