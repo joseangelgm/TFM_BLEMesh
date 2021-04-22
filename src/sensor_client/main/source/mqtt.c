@@ -2,8 +2,10 @@
 #include "mqtt_client.h"
 #include "cJSON.h"
 
+#include "source/mqtt_data.h"
+
 static const char *TAG = "MQTT";
-static const char *PUB_TOPIC = "/sensors/results"; // to publish data
+//static const char *PUB_TOPIC = "/sensors/results"; // to publish data
 static const char *SUB_TOPIC = "/sensors/commands"; // to execute commands
 
 static esp_mqtt_client_handle_t client_mqtt;
@@ -45,6 +47,23 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 
             ESP_LOGI(TAG, "Topic: %s, data: %s", topic, data);
 
+            action_code_t code;
+            action_t action;
+            cJSON *root = cJSON_Parse(data);
+            const char *json_info = cJSON_Print(root);
+            if(json_info != NULL){
+                ESP_LOGW(TAG, "JSON: %s", json_info);
+                free((void *)json_info);
+            }
+
+            code = build_action(root, &action);
+            if(code == A_ERROR){
+                ESP_LOGE(TAG, "ERROR PARSING DATA");
+            }
+
+            ESP_LOGI(TAG, "Action created: status %d, opcode %u", action.status, action.opcode);
+
+            cJSON_Delete(root);
             free(topic);
             free(data);
             break;
