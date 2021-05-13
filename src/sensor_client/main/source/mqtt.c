@@ -4,6 +4,8 @@
 #include "source/mqtt.h"
 #include "source/ble_cmd.h"
 
+extern void init_tasks_manager();
+
 static const char *TAG = "MQTT";
 //static const char *PUB_TOPIC = "/sensors/results"; // to publish data
 static const char *SUB_TOPIC = "/sensors/commands"; // to execute commands
@@ -39,7 +41,6 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_DATA:
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
 
-            /*
             // Get topic
             char *topic = malloc(event->topic_len * sizeof(char) + 1);
             memset(topic, '\0', event->topic_len * sizeof(char) + 1);
@@ -51,18 +52,18 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             strncpy(data, event->data, event->data_len);
 
             ESP_LOGI(TAG, "Topic: %s, data: %s", topic, data);
-            */
 
-            mqtt_json json = {
-                .json = event->data,
-                .size = event->data_len,
-            };
-            xQueueSendToBack(queue_receive, &json, 0);
+            // Receive a request to create a task
+            if(strcmp(topic, SUB_TOPIC) == 0){
+                mqtt_json json = {
+                    .json = event->data,
+                    .size = event->data_len,
+                };
+                xQueueSendToBack(queue_receive, &json, 0);
+            }
 
-            /*
             free(topic);
             free(data);
-            */
 
             break;
         case MQTT_EVENT_ERROR:
@@ -99,6 +100,9 @@ esp_err_t init_mqtt()
 
     // ble cmd task
     xTaskCreate(&task_parse_json, "task_parse_json", 2048, (void *) &queue_receive, 4, NULL);
+
+    // Initialize task manager
+    init_tasks_manager();
 
     client_mqtt = esp_mqtt_client_init(&mqtt_cfg);
     mqtt_app_start(client_mqtt);

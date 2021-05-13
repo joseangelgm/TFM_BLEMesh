@@ -10,6 +10,7 @@
 #include "esp_ble_mesh_sensor_model_api.h"
 
 #include "source/ble_cmd.h"
+#include "source/tasks_manager.h"
 
 static const char *TAG = "BLE_CMD";
 
@@ -35,25 +36,10 @@ uint32_t get_opcode(char *opcode)
     return 0;
 }
 
-#if 0
 static void task_ble_cmd(void *params)
 {
     ble_task_t *ble_task = (ble_task_t *) params;
-    ESP_LOGW(TAG, "task_ble_cmd2: %d, %d", ble_task->opcode, ble_task->delay);
-
-    //for(;;)
-    //{
-    //    ble_mesh_send_sensor_message(ble_task->opcode);
-    //    vTaskDelay(ble_task->delay * 1000 / portTICK_PERIOD_MS);
-    //}
-    vTaskDelete(NULL);
-}
-#endif
-
-static void task_ble_cmd(void *params)
-{
-    ble_task_t *ble_task = (ble_task_t *) params;
-    ESP_LOGW(TAG, "task_ble_cmd2: %d, %d", ble_task->opcode, ble_task->delay);
+    ESP_LOGW(TAG, "[%s] %d, %d", ble_task->name, ble_task->opcode, ble_task->delay);
 
     for(;;)
     {
@@ -64,7 +50,17 @@ static void task_ble_cmd(void *params)
 }
 
 
-// mosquitto_pub -t /sensors/commands -m "{\"auto\":true,\"tasks\":[{\"opcode\":\"GET_STATUS\",\"delay\":7}]}"
+char* sanitize_string(char* string)
+{
+    unsigned long size = strlen(string);
+    char *new_string = malloc(size * sizeof(char) + 1);
+    memset(new_string, '\0', size * sizeof(char) + 1);
+    strncpy(new_string, string, size);
+    return new_string;
+}
+
+
+// mosquitto_pub -t /sensors/commands -m "{\"auto\":true,\"tasks\":[{\"opcode\":\"GET_STATUS\",\"delay\":7,\"name\":\"new_task\"}]}"
 /**
  * @brief return the size of ble_task_t created
 */
@@ -92,12 +88,15 @@ static ble_task_t* parse_build_task(char *json, int* size)
 
                         const cJSON *opcode = cJSON_GetObjectItem(task, "opcode");
                         const cJSON *delay  = cJSON_GetObjectItem(task, "delay");
+                        const cJSON *name   = cJSON_GetObjectItem(task, "name");
 
                         if(opcode != NULL && cJSON_IsString(opcode)
-                            && delay != NULL && cJSON_IsNumber(delay)){
+                            && delay != NULL && cJSON_IsNumber(delay)
+                            && name != NULL && cJSON_IsString(name)){
 
                             ble_tasks[size_tasks].opcode = get_opcode(opcode->valuestring);
                             ble_tasks[size_tasks].delay  = delay->valueint;
+                            ble_tasks[size_tasks].name = sanitize_string(name->valuestring);
                             size_tasks++;
 
                         }
@@ -110,67 +109,9 @@ static ble_task_t* parse_build_task(char *json, int* size)
         }
     }
     cJSON_Delete(root);
-    if(ble_tasks == NULL){
-        ESP_LOGE(TAG, "Null BUILD");
-    }
     *size = size_tasks;
     return ble_tasks;
 }
-
-#if 0
-static int parse_build_task(char *json, ble_task_t **ble_tasks)
-{
-
-    // char *topic = malloc(event->topic_len * sizeof(char) + 1);
-    // memset(topic, '\0', event->topic_len * sizeof(char) + 1);
-
-    int size_tasks = 0;
-
-    cJSON *root = cJSON_Parse(json);
-    const cJSON *automatic = cJSON_GetObjectItem(root, "auto");
-    if(automatic != NULL || cJSON_IsBool(automatic)){
-        /*
-            Check if auto is true or false
-        */
-        if(cJSON_IsTrue(automatic)){
-            const cJSON *tasks = cJSON_GetObjectItem(root, "tasks");
-            if(tasks != NULL){
-                const cJSON *task = NULL;
-                int size = cJSON_GetArraySize(tasks);
-
-                if(size != 0){
-
-                    *ble_tasks = (ble_task_t *) malloc(size * sizeof(ble_task_t));
-                    memset(*ble_tasks, 0, size * sizeof(ble_task_t));
-
-                    cJSON_ArrayForEach(task, tasks){
-
-                        const cJSON *opcode = cJSON_GetObjectItem(task, "opcode");
-                        const cJSON *delay  = cJSON_GetObjectItem(task, "delay");
-
-                        if(opcode != NULL && cJSON_IsString(opcode)
-                            && delay != NULL && cJSON_IsNumber(delay)){
-
-                            (*ble_tasks)[size_tasks].opcode = get_opcode(opcode->valuestring);
-                            (*ble_tasks)[size_tasks].delay  = delay->valueint;
-                            size_tasks++;
-
-                        }
-                    }
-                }
-            }
-        }
-        else{ // No es una tarea automatica
-
-        }
-    }
-    cJSON_Delete(root);
-    if(ble_tasks == NULL){
-        ESP_LOGE(TAG, "Null BUILD");
-    }
-    return size_tasks;
-}
-#endif
 
 void task_parse_json(void *params)
 {
@@ -198,17 +139,32 @@ void task_parse_json(void *params)
             {
                 if(ble_tasks == NULL)
                 {
-                    ESP_LOGE(TAG, "Null OUT");
+                    ESP_LOGE(TAG, "Null when process json to create tasks");
                 }
                 else
                 {
                     for(int i = 0; i < size_tasks; i++)
                     {
-                        ESP_LOGI(TAG, "Task: opcode real %u, delay %d", ble_tasks[i].opcode, ble_tasks[i].delay);
-                        ESP_LOGW(TAG, "Before Task: %lu, %d, %lu", (unsigned long) ble_tasks[i].opcode, ble_tasks[i].delay, (unsigned long) ESP_BLE_MESH_MODEL_OP_SENSOR_GET);
-                        ble_task_t aux;
-                        memcpy(&aux, &ble_tasks[i], sizeof(ble_task_t));
-                        xTaskCreate(&task_ble_cmd, "task_ble_cmd", 2046, (void *) &aux, 4, NULL);
+                        ESP_LOGI(TAG, "Task: opcode real %u, delay %d, name %s",
+                                 ble_tasks[i].opcode, ble_tasks[i].delay, ble_tasks[i].name);
+
+                        // Check if the tasks exists
+                        TaskHandle_t TaskHandle;
+                        task_t *new_task = (task_t *)malloc(sizeof(task_t));
+                        new_task->name = ble_tasks[i].name;
+                        new_task->task_handler = TaskHandle;
+
+                        status_t status = add_new_task_not_exists(new_task);
+                        if(status == CREATED){
+                            ble_task_t aux;
+                            memcpy(&aux, &ble_tasks[i], sizeof(ble_task_t));
+                            xTaskCreate(&task_ble_cmd, aux.name, 2046, (void *) &aux, 4, &TaskHandle);
+                        }
+                        else {
+                            // Send for mqtt message -> The task "name" exists!
+                            ESP_LOGE(TAG, "Task - %s - exists!", ble_tasks[i].name);
+                            free(new_task);
+                        }
                     }
                 }
             }

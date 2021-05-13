@@ -11,11 +11,20 @@
 
 static const char *TAG = "Main-Client";
 
+#define SIZE_MAIN_QUEUE 20
+
 /* Wifi */
 #define AP_RECONN_ATTEMPTS CONFIG_MAXIMUM_RETRY
 
 static bool connected = false;
 static SemaphoreHandle_t xSem_connected = NULL;
+
+/**
+ * @brief This queue will be used for:
+ * - Send results of tasks created from mqtt
+ * - Send resaults when delete tasks from mqtt
+*/
+static QueueHandle_t main_queue;
 
 static bool get_connected();
 static void set_connected(bool con);
@@ -44,6 +53,9 @@ void app_main(void){
     while(!get_connected());
 
     //vSemaphoreDelete(xSem_connected); DONT DESTROY. IF LOST WIFI CONNECTION WILL FAIL EVENT HANDLER
+
+    // Main queue
+    main_queue = xQueueCreate(SIZE_MAIN_QUEUE, sizeof(char *));
 
     // BLE
     ESP_LOGI(TAG, "Initialising Ble and Bluetooth with sensor model -> client");

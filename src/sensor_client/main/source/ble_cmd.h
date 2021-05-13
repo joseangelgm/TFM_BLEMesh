@@ -1,5 +1,5 @@
-#ifndef _BLE_CMD_H
-#define _BLE_CMD_H
+#ifndef _BLE_CMD_H_
+#define _BLE_CMD_H_
 
 typedef struct mqtt_json {
     char* json;
@@ -7,6 +7,7 @@ typedef struct mqtt_json {
 } mqtt_json;
 
 typedef struct ble_task_t {
+    char *name;
     int delay; //seconds
     uint32_t opcode;
 } ble_task_t;
