@@ -14,6 +14,17 @@
 #include "source/board.h"
 
 /*
+
+FLUJO:
+
+- discover-unprovisioned on <segundos>
+- provision <UUID>
+
+. menu config
+    - target <addr>
+    - appkey-add <index appkey>
+    - bind <addr> <index appkey> <model id>
+
 Datos interesantes
 
     Dato unico que determina que modelo estamos usando. Hay uno para el cliente y otro para el servidor dentro
@@ -136,7 +147,7 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
 void ble_mesh_send_sensor_message(uint32_t opcode)
 {
 
-    ESP_LOGI(TAG, "ble_mesh_send_sensor_message");
+    ESP_LOGI(TAG, "ble_mesh_send_sensor_message: 0x%04x, 0x%04x", opcode, ESP_BLE_MESH_MODEL_OP_SENSOR_GET);
 
     esp_ble_mesh_sensor_client_get_state_t get = {0};
     esp_ble_mesh_client_common_param_t common = {0};

@@ -1,14 +1,18 @@
 #include "esp_log.h"
 #include "mqtt_client.h"
-#include "cJSON.h"
 
-#include "source/mqtt_data.h"
+#include "source/mqtt.h"
+#include "source/ble_cmd.h"
 
 static const char *TAG = "MQTT";
 //static const char *PUB_TOPIC = "/sensors/results"; // to publish data
 static const char *SUB_TOPIC = "/sensors/commands"; // to execute commands
 
+// mqtt client to send messages to PUB_TOPIC
 static esp_mqtt_client_handle_t client_mqtt;
+
+// queue to receive json and porse it
+static QueueHandle_t queue_receive;
 
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 {
@@ -35,6 +39,7 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_DATA:
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
 
+            /*
             // Get topic
             char *topic = malloc(event->topic_len * sizeof(char) + 1);
             memset(topic, '\0', event->topic_len * sizeof(char) + 1);
@@ -46,26 +51,19 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             strncpy(data, event->data, event->data_len);
 
             ESP_LOGI(TAG, "Topic: %s, data: %s", topic, data);
+            */
 
-            action_code_t code;
-            action_t action;
-            cJSON *root = cJSON_Parse(data);
-            const char *json_info = cJSON_Print(root);
-            if(json_info != NULL){
-                ESP_LOGW(TAG, "JSON: %s", json_info);
-                free((void *)json_info);
-            }
+            mqtt_json json = {
+                .json = event->data,
+                .size = event->data_len,
+            };
+            xQueueSendToBack(queue_receive, &json, 0);
 
-            code = build_action(root, &action);
-            if(code == A_ERROR){
-                ESP_LOGE(TAG, "ERROR PARSING DATA");
-            }
-
-            ESP_LOGI(TAG, "Action created: status %d, opcode %u", action.status, action.opcode);
-
-            cJSON_Delete(root);
+            /*
             free(topic);
             free(data);
+            */
+
             break;
         case MQTT_EVENT_ERROR:
             ESP_LOGE(TAG, "MQTT_EVENT_ERROR");
@@ -84,7 +82,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     mqtt_event_handler_cb(event_data);
 }
 
-
 static void mqtt_app_start(esp_mqtt_client_handle_t client_mqtt)
 {
     esp_mqtt_client_register_event(client_mqtt, ESP_EVENT_ANY_ID, mqtt_event_handler, client_mqtt);
@@ -97,6 +94,11 @@ esp_err_t init_mqtt()
     esp_mqtt_client_config_t mqtt_cfg = {
         .uri = CONFIG_BROKER_URL,
     };
+
+    queue_receive = xQueueCreate(4, sizeof(mqtt_json));
+
+    // ble cmd task
+    xTaskCreate(&task_parse_json, "task_parse_json", 2048, (void *) &queue_receive, 4, NULL);
 
     client_mqtt = esp_mqtt_client_init(&mqtt_cfg);
     mqtt_app_start(client_mqtt);
