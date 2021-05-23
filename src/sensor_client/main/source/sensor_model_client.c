@@ -25,11 +25,14 @@ FLUJO:
     - appkey-add <index appkey>
     - bind <addr> <index appkey> <model id>
 
+- subscripcion (grupo)
+    - sub-add <addr> <dir group> <model id>
+
 Datos interesantes
 
     Dato unico que determina que modelo estamos usando. Hay uno para el cliente y otro para el servidor dentro
     de un mismo modelo:
-        - model_id para el cliente  (modelo sensor): bind 00aa 0 1102
+        - model_id para el cliente  (modelo sensor):
             . sensor client = 1102
         - model_id para el servidor (modelo sensor):
             . sensor server = 1100
@@ -97,7 +100,7 @@ static void ble_mesh_set_msg_common(esp_ble_mesh_client_common_param_t *common,
     common->model = model;
     common->ctx.net_idx = prov_key.net_idx;
     common->ctx.app_idx = prov_key.app_idx;
-    common->ctx.addr = 0xC000,
+    common->ctx.addr = 0xFFFF, //Pasarle la direccion a la que queremos enviar
     common->ctx.send_ttl = MSG_SEND_TTL;
     common->ctx.send_rel = MSG_SEND_REL;
     common->msg_timeout = MSG_TIMEOUT;

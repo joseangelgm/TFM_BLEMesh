@@ -60,7 +60,7 @@ char* sanitize_string(char* string)
 }
 
 
-// mosquitto_pub -t /sensors/commands -m "{\"auto\":true,\"tasks\":[{\"opcode\":\"GET_STATUS\",\"delay\":7,\"name\":\"new_task\"}]}"
+// mosquitto_pub -t /sensors/commands -m "{\"auto\":true,\"tasks\":[{\"opcode\":\"GET_STATUS\",\"delay\":2,\"name\":\"new_task\"}]}"
 /**
  * @brief return the size of ble_task_t created
 */
