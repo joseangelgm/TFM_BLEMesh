@@ -39,7 +39,7 @@ uint32_t get_opcode(char *opcode)
 static void task_ble_cmd(void *params)
 {
     ble_task_t *ble_task = (ble_task_t *) params;
-    ESP_LOGW(TAG, "[%s] %d, %d", ble_task->name, ble_task->opcode, ble_task->delay);
+    ESP_LOGW(TAG, "[%s] %d, %d, %d. Running.", ble_task->name, (int)ble_task->auto_task, ble_task->opcode, ble_task->delay);
 
     for(;;)
     {
@@ -48,7 +48,6 @@ static void task_ble_cmd(void *params)
     }
     vTaskDelete(NULL);
 }
-
 
 char* sanitize_string(char* string)
 {
@@ -61,8 +60,12 @@ char* sanitize_string(char* string)
 
 
 // mosquitto_pub -t /sensors/commands -m "{\"auto\":true,\"tasks\":[{\"opcode\":\"GET_STATUS\",\"delay\":2,\"name\":\"new_task\"}]}"
+#if 0
 /**
- * @brief return the size of ble_task_t created
+ * @brief
+ *  - json = Json string-like to be procesed
+ *  - size = size of the struct
+ *  Return action_t to be proceses.
 */
 static ble_task_t* parse_build_task(char *json, int* size)
 {
@@ -112,6 +115,84 @@ static ble_task_t* parse_build_task(char *json, int* size)
     *size = size_tasks;
     return ble_tasks;
 }
+#endif
+
+static action_t* parse_build_task(char *json, int* size)
+{
+    action_t *acts = NULL;
+    int size_actions = 0;
+
+    cJSON *root = cJSON_Parse(json);
+    const cJSON *actions = cJSON_GetObjectItem(root, "actions");
+    if(actions != NULL)
+    {
+        const cJSON *action = NULL;
+        size_actions = cJSON_GetArraySize(actions);
+
+        if(size_actions != 0)
+        {
+            int index = 0;
+            acts = (action_t *) malloc(size_actions * sizeof(action_t));
+            memset(acts, 0, size_actions * sizeof(action_t));
+
+            cJSON_ArrayForEach(action, actions)
+            {
+                const cJSON *elem = NULL;
+
+                elem = cJSON_GetObjectItem(action, "task_name");
+                if(elem != NULL) // tarea a borrar
+                {
+                    acts[index].opmode = REMOVE;
+                    acts[index].task.name = elem->valuestring;
+                }
+                else
+                {
+                    elem = cJSON_GetObjectItem(action, "task");
+                    if(elem != NULL) // creamos tarea
+                    {
+                        const cJSON *auto_task = cJSON_GetObjectItem(elem, "auto");
+                        const cJSON *opcode    = cJSON_GetObjectItem(elem, "opcode");
+                        const cJSON *delay     = cJSON_GetObjectItem(elem, "delay");
+                        const cJSON *name      = cJSON_GetObjectItem(elem, "name");
+
+                        if(auto_task != NULL && cJSON_IsBool(auto_task)
+                            && opcode != NULL && cJSON_IsString(opcode)
+                            && delay != NULL && cJSON_IsNumber(delay)
+                            && name != NULL && cJSON_IsString(name))
+                        {
+                            if(cJSON_IsTrue(auto_task))
+                                acts[index].task.auto_task = true;
+                            else
+                                acts[index].task.auto_task = true;
+
+                            acts[index].task.name   = sanitize_string(name->valuestring);
+                            acts[index].task.delay  = delay->valueint;
+                            acts[index].task.opcode = get_opcode(opcode->valuestring);
+                            acts[index].opmode = CREATE;
+                        }
+                        else
+                        {
+                            // Error leyendo la tarea <task_name>
+                            ESP_LOGE(TAG, "Error processing a task!");
+                        }
+                    }
+                }
+            }
+        }
+        else{
+            // Error obteniendo el numero de tareas
+            ESP_LOGE(TAG, "Error getting number of tasks!");
+        }
+    }
+    else
+    {
+        // Devolver error de que no esta bien formado el json
+        ESP_LOGE(TAG, "Json bad formed!");
+    }
+    *size = size_actions;
+    return acts;
+}
+
 
 void task_parse_json(void *params)
 {
@@ -120,8 +201,8 @@ void task_parse_json(void *params)
     mqtt_json json_received;
 
     char* json_string;
-    ble_task_t *ble_tasks = NULL;
-    int size_tasks = 0;
+    action_t *actions = NULL;
+    int size_actions;
 
     for(;;)
     {
@@ -134,41 +215,63 @@ void task_parse_json(void *params)
             ESP_LOGI(TAG, "Json received %s", json_string);
 
             // Check if json is correct
-            ble_tasks = parse_build_task(json_string, &size_tasks);
-            if(size_tasks != 0)
+            size_actions = 0;
+            actions = parse_build_task(json_string, &size_actions);
+            ESP_LOGW(TAG, "SIZE: %d", size_actions);
+            if(size_actions != 0)
             {
-                if(ble_tasks == NULL)
+                if(actions != NULL)
                 {
-                    ESP_LOGE(TAG, "Null when process json to create tasks");
-                }
-                else
-                {
-                    for(int i = 0; i < size_tasks; i++)
+                    for(int i = 0; i < size_actions; i++)
                     {
-                        ESP_LOGI(TAG, "Task: opcode real %u, delay %d, name %s",
-                                 ble_tasks[i].opcode, ble_tasks[i].delay, ble_tasks[i].name);
+                        ESP_LOGI(TAG, "Action:\n\tname %s,\n\tauto %d,\n\topcode %u,\n\tdelay %d",
+                                 actions[i].task.name, (int)actions[i].task.auto_task, actions[i].task.opcode, actions[i].task.delay);
+                        if(actions[i].opmode == REMOVE) // remove task
+                        {
+                            ESP_LOGW(TAG, "Removing task %s", actions[i].task.name);
 
-                        // Check if the tasks exists
-                        TaskHandle_t TaskHandle;
-                        task_t *new_task = (task_t *)malloc(sizeof(task_t));
-                        new_task->name = ble_tasks[i].name;
-                        new_task->task_handler = TaskHandle;
-
-                        status_t status = add_new_task_not_exists(new_task);
-                        if(status == CREATED){
-                            ble_task_t aux;
-                            memcpy(&aux, &ble_tasks[i], sizeof(ble_task_t));
-                            xTaskCreate(&task_ble_cmd, aux.name, 2046, (void *) &aux, 4, &TaskHandle);
+                            task_t *task = obtain_task(actions[i].task.name);
+                            if(task != NULL)
+                            {
+                                vTaskDelete(task->task_handler);
+                                remove_task(actions[i].task.name);
+                            }
+                            else
+                            {
+                                ESP_LOGE(TAG, "Task %s doesn't exists. Remove failed", actions[i].task.name);
+                            }
                         }
-                        else {
-                            // Send for mqtt message -> The task "name" exists!
-                            ESP_LOGE(TAG, "Task - %s - exists!", ble_tasks[i].name);
-                            free(new_task);
+                        else if(actions[i].opmode == CREATE)
+                        {
+                            // Check if the tasks exists
+                            TaskHandle_t TaskHandle;
+                            task_t *new_task = (task_t *)malloc(sizeof(task_t));
+                            new_task->name = actions[i].task.name;
+                            new_task->task_handler = TaskHandle;
+
+                            status_t status = add_new_task_if_not_exists(new_task);
+                            if(status == CREATED){
+                                ble_task_t aux;
+                                memcpy(&aux, &actions[i].task, sizeof(ble_task_t));
+                                xTaskCreate(&task_ble_cmd, aux.name, 2046, (void *) &aux, 4, &TaskHandle);
+                            }
+                            else {
+                                // Send for mqtt message -> The task "name" exists!
+                                ESP_LOGE(TAG, "Task - %s - exists!", actions[i].task.name);
+                                free(new_task);
+                            }
+                        }
+                        else
+                        {
+                            ESP_LOGE(TAG, "opmode couldn't be recognize!");
                         }
                     }
                 }
             }
-            free(ble_tasks);
+            else{
+                ESP_LOGE(TAG, "Json could be processed or size task equals zero!");
+            }
+            free(actions);
             free(json_string);
         }
         else

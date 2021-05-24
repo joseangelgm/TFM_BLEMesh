@@ -35,6 +35,12 @@ void free_tasks_manager();
 status_t task_exists(task_t *new_task);
 
 /* Add */
-status_t add_new_task_not_exists(task_t *new_task);
+status_t add_new_task_if_not_exists(task_t *new_task);
+
+/* Obtain */
+task_t* obtain_task(char *name);
+
+/* Remove */
+void remove_task(char *name);
 
 #endif

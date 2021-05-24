@@ -108,7 +108,7 @@ static void add_task(task_t *new_task)
 /**
  * @brief Add a new task and check if exists. If not, the task is added.
  */
-status_t add_new_task_not_exists(task_t *new_task)
+status_t add_new_task_if_not_exists(task_t *new_task)
 {
     status_t status = EXISTS;
     if(task_exists(new_task) != EXISTS){
@@ -116,4 +116,57 @@ status_t add_new_task_not_exists(task_t *new_task)
         status = CREATED;
     }
     return status;
+}
+
+/**
+ * @brief obtain the task's data based on a given name
+ */
+task_t* obtain_task(char *name)
+{
+    task_t *task = NULL;
+    node_t *aux = task_manager->first;
+
+    task_t task_found = {
+        .name = name,
+    };
+
+    status_t status = NOT_EXISTS;
+
+    while(status == NOT_EXISTS && aux != NULL){
+        if(equals(aux->task, &task_found)){
+            status = EXISTS;
+            task = aux->task;
+        }
+        else{
+            aux = aux->next;
+        }
+    }
+    return task;
+}
+
+/**
+ * @brief remove a task from list based on a given name
+ */
+void remove_task(char *name)
+{
+    node_t *aux = task_manager->first;
+    node_t *before = NULL;
+
+    task_t task = {
+        .name = name,
+    };
+
+    status_t status = NOT_EXISTS;
+
+    while(status == NOT_EXISTS && aux != NULL){
+        if(equals(aux->task, &task)){
+            status = EXISTS;
+            before->next = aux->next;
+            free_node(aux);
+        }
+        else{
+            before = aux;
+            aux = aux->next;
+        }
+    }
 }
