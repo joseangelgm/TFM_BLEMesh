@@ -60,63 +60,6 @@ char* sanitize_string(char* string)
 
 
 // mosquitto_pub -t /sensors/commands -m "{\"auto\":true,\"tasks\":[{\"opcode\":\"GET_STATUS\",\"delay\":2,\"name\":\"new_task\"}]}"
-#if 0
-/**
- * @brief
- *  - json = Json string-like to be procesed
- *  - size = size of the struct
- *  Return action_t to be proceses.
-*/
-static ble_task_t* parse_build_task(char *json, int* size)
-{
-
-    int size_tasks = 0;
-    ble_task_t *ble_tasks = NULL;
-
-    cJSON *root = cJSON_Parse(json);
-    const cJSON *automatic = cJSON_GetObjectItem(root, "auto");
-    if(automatic != NULL || cJSON_IsBool(automatic)){
-        if(cJSON_IsTrue(automatic)){
-            const cJSON *tasks = cJSON_GetObjectItem(root, "tasks");
-            if(tasks != NULL){
-                const cJSON *task = NULL;
-                int size = cJSON_GetArraySize(tasks);
-
-                if(size != 0){
-
-                    ble_tasks = (ble_task_t *) malloc(size * sizeof(ble_task_t));
-                    memset(ble_tasks, 0, size * sizeof(ble_task_t));
-
-                    cJSON_ArrayForEach(task, tasks){
-
-                        const cJSON *opcode = cJSON_GetObjectItem(task, "opcode");
-                        const cJSON *delay  = cJSON_GetObjectItem(task, "delay");
-                        const cJSON *name   = cJSON_GetObjectItem(task, "name");
-
-                        if(opcode != NULL && cJSON_IsString(opcode)
-                            && delay != NULL && cJSON_IsNumber(delay)
-                            && name != NULL && cJSON_IsString(name)){
-
-                            ble_tasks[size_tasks].opcode = get_opcode(opcode->valuestring);
-                            ble_tasks[size_tasks].delay  = delay->valueint;
-                            ble_tasks[size_tasks].name = sanitize_string(name->valuestring);
-                            size_tasks++;
-
-                        }
-                    }
-                }
-            }
-        }
-        else{ // No es una tarea automatica
-
-        }
-    }
-    cJSON_Delete(root);
-    *size = size_tasks;
-    return ble_tasks;
-}
-#endif
-
 static action_t* parse_build_task(char *json, int* size)
 {
     action_t *acts = NULL;
