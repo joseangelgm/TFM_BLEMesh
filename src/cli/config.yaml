@@ -1,0 +1,9 @@
+---
+:mqtt:
+  #:ip: "192.168.0.183"
+  :ip: "127.0.0.1"
+  :port: 1883
+  :topics:
+    :topic_pub: "/sensors/commands"
+    :topic_sub: "/sensors/results/cli"
+  :time_to_wait_response: 5 # seconds
