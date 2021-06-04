@@ -11,6 +11,7 @@
 
 #include "source/ble_cmd.h"
 #include "source/tasks_manager.h"
+#include "source/messages_parser.h"
 
 static const char *TAG = "BLE_CMD";
 
@@ -58,19 +59,16 @@ char* sanitize_string(char* string)
     return new_string;
 }
 
-
-// mosquitto_pub -t /sensors/commands -m "{\"auto\":true,\"tasks\":[{\"opcode\":\"GET_STATUS\",\"delay\":2,\"name\":\"new_task\"}]}"
 static action_t* parse_build_task(char *json, int* size)
 {
     action_t *acts = NULL;
-    int size_actions = 0;
 
     cJSON *root = cJSON_Parse(json);
     const cJSON *actions = cJSON_GetObjectItem(root, "actions");
     if(actions != NULL)
     {
         const cJSON *action = NULL;
-        size_actions = cJSON_GetArraySize(actions);
+        int size_actions = cJSON_GetArraySize(actions);
 
         if(size_actions != 0)
         {
@@ -90,37 +88,35 @@ static action_t* parse_build_task(char *json, int* size)
                 }
                 else
                 {
-                    elem = cJSON_GetObjectItem(action, "task");
-                    if(elem != NULL) // creamos tarea
+                    const cJSON *auto_task = cJSON_GetObjectItem(action, "auto");
+                    const cJSON *opcode    = cJSON_GetObjectItem(action, "opcode");
+                    const cJSON *delay     = cJSON_GetObjectItem(action, "delay");
+                    const cJSON *name      = cJSON_GetObjectItem(action, "name");
+
+                    if(auto_task != NULL && cJSON_IsBool(auto_task)
+                        && opcode != NULL && cJSON_IsString(opcode)
+                        && delay != NULL && cJSON_IsNumber(delay)
+                        && name != NULL && cJSON_IsString(name))
                     {
-                        const cJSON *auto_task = cJSON_GetObjectItem(elem, "auto");
-                        const cJSON *opcode    = cJSON_GetObjectItem(elem, "opcode");
-                        const cJSON *delay     = cJSON_GetObjectItem(elem, "delay");
-                        const cJSON *name      = cJSON_GetObjectItem(elem, "name");
-
-                        if(auto_task != NULL && cJSON_IsBool(auto_task)
-                            && opcode != NULL && cJSON_IsString(opcode)
-                            && delay != NULL && cJSON_IsNumber(delay)
-                            && name != NULL && cJSON_IsString(name))
-                        {
-                            if(cJSON_IsTrue(auto_task))
-                                acts[index].task.auto_task = true;
-                            else
-                                acts[index].task.auto_task = true;
-
-                            acts[index].task.name   = sanitize_string(name->valuestring);
-                            acts[index].task.delay  = delay->valueint;
-                            acts[index].task.opcode = get_opcode(opcode->valuestring);
-                            acts[index].opmode = CREATE;
-                        }
+                        if(cJSON_IsTrue(auto_task))
+                            acts[index].task.auto_task = true;
                         else
-                        {
-                            // Error leyendo la tarea <task_name>
-                            ESP_LOGE(TAG, "Error processing a task!");
-                        }
+                            acts[index].task.auto_task = false;
+
+                        acts[index].task.name   = sanitize_string(name->valuestring);
+                        acts[index].task.delay  = delay->valueint;
+                        acts[index].task.opcode = get_opcode(opcode->valuestring);
+                        acts[index].opmode = CREATE;
+                    }
+                    else
+                    {
+                        // Error leyendo la tarea <task_name>
+                        ESP_LOGE(TAG, "Error processing a task!");
                     }
                 }
+                index++;
             }
+            *size = index; // Get real number of tasks that will be processed
         }
         else{
             // Error obteniendo el numero de tareas
@@ -132,10 +128,8 @@ static action_t* parse_build_task(char *json, int* size)
         // Devolver error de que no esta bien formado el json
         ESP_LOGE(TAG, "Json bad formed!");
     }
-    *size = size_actions;
     return acts;
 }
-
 
 void task_parse_json(void *params)
 {
@@ -147,11 +141,15 @@ void task_parse_json(void *params)
     action_t *actions = NULL;
     int size_actions;
 
+    char buff[MAX_LENGHT_MESSAGE];
+
     for(;;)
     {
         xStatus = xQueueReceive(queue, &json_received, portMAX_DELAY);
         if(xStatus == pdTRUE)
         {
+            message_t* message = create_message_text_plain();
+
             json_string = (char *) malloc(json_received.size * sizeof(char) + 1);
             memset(json_string, '\0',  json_received.size * sizeof(char) + 1);
             strncpy(json_string, json_received.json, json_received.size);
@@ -167,25 +165,35 @@ void task_parse_json(void *params)
                 {
                     for(int i = 0; i < size_actions; i++)
                     {
-                        ESP_LOGI(TAG, "Action:\n\tname %s,\n\tauto %d,\n\topcode %u,\n\tdelay %d",
-                                 actions[i].task.name, (int)actions[i].task.auto_task, actions[i].task.opcode, actions[i].task.delay);
                         if(actions[i].opmode == REMOVE) // remove task
                         {
-                            ESP_LOGW(TAG, "Removing task %s", actions[i].task.name);
+                            ESP_LOGI(TAG, "Removing task:\n\tname %s,\n\tauto %d,\n\topcode %u,\n\tdelay %d",
+                                 actions[i].task.name, (int)actions[i].task.auto_task, actions[i].task.opcode, actions[i].task.delay);
 
                             task_t *task = obtain_task(actions[i].task.name);
                             if(task != NULL)
                             {
                                 vTaskDelete(task->task_handler);
                                 remove_task(actions[i].task.name);
+
+                                memset(buff,'\0',MAX_LENGHT_MESSAGE);
+                                sprintf(buff, "Task %s deleted", actions[i].task.name);
+                                add_message_text_plain(&message->m_content.text_plain, buff);
+
                             }
                             else
                             {
                                 ESP_LOGE(TAG, "Task %s doesn't exists. Remove failed", actions[i].task.name);
+                                memset(buff,'\0',MAX_LENGHT_MESSAGE);
+                                sprintf(buff, "Task %s doesn't exists", actions[i].task.name);
+                                add_message_text_plain(&message->m_content.text_plain, buff);
                             }
                         }
                         else if(actions[i].opmode == CREATE)
                         {
+                            ESP_LOGI(TAG, "Creating task:\n\tname %s,\n\tauto %d,\n\topcode %u,\n\tdelay %d",
+                                 actions[i].task.name, (int)actions[i].task.auto_task, actions[i].task.opcode, actions[i].task.delay);
+
                             // Check if the tasks exists
                             TaskHandle_t TaskHandle;
                             task_t *new_task = (task_t *)malloc(sizeof(task_t));
@@ -193,16 +201,26 @@ void task_parse_json(void *params)
                             new_task->task_handler = TaskHandle;
 
                             status_t status = add_new_task_if_not_exists(new_task);
-                            if(status == CREATED){
+                            if(status == CREATED)
+                            {
                                 ble_task_t aux;
                                 memcpy(&aux, &actions[i].task, sizeof(ble_task_t));
                                 xTaskCreate(&task_ble_cmd, aux.name, 2046, (void *) &aux, 4, &TaskHandle);
+
+                                memset(buff,'\0',MAX_LENGHT_MESSAGE);
+                                sprintf(buff, "Task %s created", actions[i].task.name);
+                                add_message_text_plain(&message->m_content.text_plain, buff);
                             }
-                            else {
+                            else
+                            {
                                 // Send for mqtt message -> The task "name" exists!
                                 ESP_LOGE(TAG, "Task - %s - exists!", actions[i].task.name);
-                                free(new_task);
+
+                                memset(buff,'\0',MAX_LENGHT_MESSAGE);
+                                sprintf(buff, "Task %s exists", actions[i].task.name);
+                                add_message_text_plain(&message->m_content.text_plain, buff);
                             }
+                            free(new_task);
                         }
                         else
                         {
@@ -214,8 +232,11 @@ void task_parse_json(void *params)
             else{
                 ESP_LOGE(TAG, "Json could be processed or size task equals zero!");
             }
+            send_message_queue(message);
+
             free(actions);
             free(json_string);
+            free(message);
         }
         else
         {

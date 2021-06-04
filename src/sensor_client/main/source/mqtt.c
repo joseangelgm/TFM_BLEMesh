@@ -3,11 +3,13 @@
 
 #include "source/mqtt.h"
 #include "source/ble_cmd.h"
+#include "source/messages_parser.h"
 
 extern void init_tasks_manager();
 
 static const char *TAG = "MQTT";
-//static const char *PUB_TOPIC = "/sensors/results"; // to publish data
+static const char *PUB_TOPIC_DASH = "/sensors/results/dashboard";
+static const char *PUB_TOPIC_CLI = "/sensors/results/cli";
 static const char *SUB_TOPIC = "/sensors/commands"; // to execute commands
 
 // mqtt client to send messages to PUB_TOPIC
@@ -77,6 +79,38 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
     return ESP_OK;
 }
 
+static void task_send_response_mqtt(void* params)
+{
+    QueueHandle_t queue = (*(QueueHandle_t *) params);
+    BaseType_t xStatus;
+    message_t message;
+    char* json = NULL;
+
+    for(;;)
+    {
+        // free message?????
+        xStatus = xQueueReceive(queue, &message, portMAX_DELAY);
+        if(xStatus == pdTRUE)
+        {
+            ESP_LOGI(TAG, "Message to mqtt of type %d", message.type);
+            json = message_to_json(&message);
+            if(json != NULL)
+            {
+                if(message.type == PLAIN_TEXT)
+                {
+                    esp_mqtt_client_publish(client_mqtt, PUB_TOPIC_CLI, json, 0, 0, 0);
+                }
+                else
+                {
+                    esp_mqtt_client_publish(client_mqtt, PUB_TOPIC_DASH, json, 0, 0, 0);
+                }
+                free(json);
+            }
+        }
+        vTaskDelay(400 / portTICK_PERIOD_MS);
+    }
+}
+
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
@@ -96,10 +130,17 @@ esp_err_t init_mqtt()
         .uri = CONFIG_BROKER_URL,
     };
 
-    queue_receive = xQueueCreate(4, sizeof(mqtt_json));
+    queue_receive  = xQueueCreate(4, sizeof(mqtt_json));
+    QueueHandle_t queue_messages = xQueueCreate(25, sizeof(message_t));
+
+    // Initialize queue message parser
+    initialize_messages_parser_queue(queue_messages);
 
     // ble cmd task
     xTaskCreate(&task_parse_json, "task_parse_json", 2048, (void *) &queue_receive, 4, NULL);
+
+    // Task to send responses to dashboard or cli
+    xTaskCreate(&task_send_response_mqtt, "task_send_response_mqtt", 4098, (void *) &queue_messages, 4, NULL);
 
     // Initialize task manager
     init_tasks_manager();
