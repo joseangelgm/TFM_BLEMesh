@@ -5,7 +5,7 @@ class MQTT
     DEFAULT_TIME = 5
     private_constant :DEFAULT_TIME
 
-    attr_reader :response
+    attr_reader :response, :time_to_wait
 
     public
 
@@ -28,7 +28,7 @@ class MQTT
     end
 
     def send_json(json)
-
+        puts "Sending json over mqtt..."
         ### Register a callback on message event to display messages
         wait_message = true
         @client.on_message do |message|
@@ -40,7 +40,6 @@ class MQTT
         waiting_suback = true
         @client.on_suback do
             waiting_suback = false
-            puts "Subscribed".bold.green
         end
 
         ### Connect to the eclipse test server on port 1883 (Unencrypted mode)
@@ -58,7 +57,7 @@ class MQTT
         @client.publish(@topic_pub, JSON[json], false, 1)
 
         Timeout::timeout(@time_to_wait) do
-            puts "Waiting the response...".bold.yellow
+            puts "Waiting response...".bold.yellow
             while wait_message do
                 sleep 0.001
             end

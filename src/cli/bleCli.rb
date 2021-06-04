@@ -74,7 +74,7 @@ rescue
     exit 1
 end
 
-CONFIG_FILE = "./config.yaml"
+CONFIG_FILE = "./config/config.yaml"
 
 def format_param_structure(params)
 
@@ -156,40 +156,39 @@ if ARGV.length == 0
 end
 
 config = YAML::load_file(CONFIG_FILE)
-mqtt_client   = nil
 
-begin
-    mqtt_client = MQTT.new(config[:mqtt])
-    mqtt_client.send_json({:pepe => "pepe"})
-    json_received = mqtt_client.response
-    puts "#{"Json received".bold.green}"
-    pp json_received
-rescue PahoMqtt::Exception => e
-    STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n"\
-                "Ensule that mqtt is powered on."
+# create mqtt object
+mqtt_client = MQTT.new(config[:mqtt])
+
+editor = options[:editor] || ENV['EDITOR'] # parameter or environment variable
+if !editor
+    puts "Please, create EDITOR environment variable -> export EDITOR=your favorite editor"
     exit 1
-rescue Timeout::Error => e
-    STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n"\
-                "The client spend more time than expected. Set timeout in #{CONFIG_FILE}"
-    exit 1
-rescue Exception => e
-    STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}."
-    exit 1
-end
-exit 0
-editor = options[:editor]
-if !options[:editor]
-    editor = ENV['EDITOR']
-    if !editor
-        puts "Please, create EDITOR environment variable -> export EDITOR=your favorite editor"
-        exit 1
-    end
 end
 
 if options[:create]
-    actions = ActionParser.new
-    actions.create_json(editor)
-    actions_json
+    begin
+        # Build json
+        actions = ActionParser.new
+        actions.create_json(editor)
+        puts
+        # Send json and prompt response
+        mqtt_client.send_json(actions.actions_json)
+        json_received = mqtt_client.response
+        puts "#{"Json received".bold.green}"
+        pp json_received
+    rescue PahoMqtt::Exception => e
+        STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n"\
+                    "Ensule that mqtt is powered on."
+        exit 1
+    rescue Timeout::Error => e
+        STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n"\
+                    "The client spent more time than #{mqtt_client.time_to_wait} seconds. Set more timeout in #{CONFIG_FILE}"
+        exit 1
+    rescue Exception => e
+        STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}."
+        exit 1
+    end
 end
 
 if options[:remove]

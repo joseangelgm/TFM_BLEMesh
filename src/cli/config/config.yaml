@@ -6,4 +6,4 @@
   :topics:
     :topic_pub: "/sensors/commands"
     :topic_sub: "/sensors/results/cli"
-  :time_to_wait_response: 5 # seconds
+  :time_to_wait_response: 20 # seconds

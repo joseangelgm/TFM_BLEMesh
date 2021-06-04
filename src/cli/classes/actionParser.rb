@@ -41,7 +41,6 @@ class ActionParser
                 press_key_continue_prompt
             end
         end
-        puts "Json is correct"
         #File.delete TEMP_FILE
     end
 
@@ -53,6 +52,7 @@ class ActionParser
     end
 
     def check_json
+        puts "Checking if json is correct..."
         if !@actions_json.key? 'actions'
             raise KeyError, "Missing actions. Contains a list of task to be created."
         else
@@ -63,6 +63,7 @@ class ActionParser
                 raise KeyError, "Missing delay param. Contains task's delay in seconds" if !elem.key? 'delay'
                 raise KeyError, "Missing name param. Contains the task's name" if !elem.key? 'name'
                 puts "#{"Correct".bold.green}: #{elem}"
+                sleep 0.1
             end
         end
     end
