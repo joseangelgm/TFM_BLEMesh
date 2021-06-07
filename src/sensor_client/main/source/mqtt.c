@@ -106,8 +106,12 @@ static void task_send_response_mqtt(void* params)
                 }
                 free(json);
             }
+            else
+            {
+                ESP_LOGE(TAG, "Json is null!");
+            }
         }
-        vTaskDelay(400 / portTICK_PERIOD_MS);
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -137,10 +141,12 @@ esp_err_t init_mqtt()
     initialize_messages_parser_queue(queue_messages);
 
     // ble cmd task
-    xTaskCreate(&task_parse_json, "task_parse_json", 2048, (void *) &queue_receive, 4, NULL);
+    xTaskCreate(&task_parse_json, "task_parse_json", 4098, (void *) &queue_receive, 4, NULL);
+    //xTaskCreatePinnedToCore(&task_parse_json, "task_parse_json", 4098, (void *) &queue_receive, 4, NULL, 0);
 
     // Task to send responses to dashboard or cli
     xTaskCreate(&task_send_response_mqtt, "task_send_response_mqtt", 4098, (void *) &queue_messages, 4, NULL);
+    //xTaskCreatePinnedToCore(&task_send_response_mqtt, "task_send_response_mqtt", 4098, (void *) &queue_messages, 4, NULL, 0);
 
     // Initialize task manager
     init_tasks_manager();

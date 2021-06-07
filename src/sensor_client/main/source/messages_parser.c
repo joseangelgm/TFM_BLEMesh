@@ -6,7 +6,7 @@
 
 #include "source/messages_parser.h"
 
-static const char *TAG = "MES_PARSER";
+//static const char *TAG = "MES_PARSER";
 
 static QueueHandle_t queue_message;
 
@@ -39,8 +39,6 @@ static char* message_to_text_plain(text_t *t)
     if (messages == NULL)
         goto error;
 
-    ESP_LOGW(TAG, "Processing messages -> %d", t->num_messages);
-
     cJSON_AddItemToObject(root, "messages", messages);
     cJSON *message = NULL;
     char buff[MAX_LENGHT_MESSAGE];
@@ -48,15 +46,14 @@ static char* message_to_text_plain(text_t *t)
     for(int i = 0; i < t->num_messages; i++)
     {
         memset(buff, '\0',  MAX_LENGHT_MESSAGE);
-        strcpy (buff, t->messages[i]);
-        ESP_LOGW(TAG, "messages %d -> %s", i, t->messages[i]);
+        strncpy(buff, t->messages[i], strlen(t->messages[i]));
 
         message = cJSON_CreateString(buff);
         if(message == NULL)
             goto error;
+
         cJSON_AddItemToArray(messages, message);
     }
-    ESP_LOGW(TAG, "Terminando");
     json = cJSON_Print(root);
 
 error:
@@ -81,14 +78,17 @@ message_t* create_message_text_plain()
     message_t* message = malloc(sizeof(message_t));
     message->m_content.text_plain.num_messages = 0;
     message->type = PLAIN_TEXT;
+
     return message;
 }
 
 void add_message_text_plain(text_t* text, char* string)
 {
+    //ESP_LOGW(TAG, "MESSAGE: %s", string);
     if(text->num_messages < MAX_NUM_MESSAGES)
     {
         strcpy(text->messages[text->num_messages], string);
+        //ESP_LOGW(TAG, "COPIED MESSAGE: %s", text->messages[text->num_messages]);
         text->num_messages++;
     }
 }

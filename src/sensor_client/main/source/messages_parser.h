@@ -21,7 +21,7 @@ typedef enum {
 // plain text: errors, info messages
 typedef struct text_t {
     int num_messages;
-    char *messages[MAX_NUM_MESSAGES];
+    char messages[MAX_NUM_MESSAGES][MAX_NUM_MESSAGES];
 } text_t;
 
 /* A message will only have one of the following fields */

@@ -1,6 +1,9 @@
 #include <string.h>
+#include "esp_log.h"
 
 #include "source/tasks_manager.h"
+
+static const char* TAG = "TaskManager";
 
 // pointer to tasks_t struct to manage tasks
 static tasks_t *task_manager;
@@ -147,10 +150,10 @@ task_t* obtain_task(char *name)
 /**
  * @brief remove a task from list based on a given name
  */
-void remove_task(char *name)
+status_t remove_task(char *name)
 {
     node_t *aux = task_manager->first;
-    node_t *before = NULL;
+    node_t *temp = NULL;
 
     task_t task = {
         .name = name,
@@ -158,15 +161,31 @@ void remove_task(char *name)
 
     status_t status = NOT_EXISTS;
 
-    while(status == NOT_EXISTS && aux != NULL){
-        if(equals(aux->task, &task)){
-            status = EXISTS;
-            before->next = aux->next;
-            free_node(aux);
-        }
-        else{
-            before = aux;
-            aux = aux->next;
+    // si es el primero, lo borramos y apuntamos al siguiente
+    if(equals(aux->task, &task))
+    {
+        temp = aux;
+        aux = aux->next;
+        status = EXISTS;
+        free_node(temp);
+    }
+    //si no, lo buscamos
+    else{
+        while(status == NOT_EXISTS && temp != NULL)
+        {
+            if(equals(aux->task, &task))
+            {
+                status = EXISTS;
+                temp->next = aux->next;
+                free_node(aux);
+            }
+            else
+            {
+                temp = aux;
+                aux = aux->next;
+            }
         }
     }
+
+    return status;
 }

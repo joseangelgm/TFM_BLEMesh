@@ -12,10 +12,11 @@ typedef enum {
 } opmode_t;
 
 typedef struct ble_task_t {
-    char *name; // name of the task.
-    bool auto_task; // whether it is a auto task or just one execution
-    int delay; // seconds
+    char *name;      // name of the task.
+    bool auto_task;  // whether it is a auto task or just one execution
+    int delay;       // seconds
     uint32_t opcode; // BLE opcode message
+    uint16_t addr;   // addr to send the message
 } ble_task_t;
 
 typedef struct action_t {

@@ -41,6 +41,6 @@ status_t add_new_task_if_not_exists(task_t *new_task);
 task_t* obtain_task(char *name);
 
 /* Remove */
-void remove_task(char *name);
+status_t remove_task(char *name);
 
 #endif

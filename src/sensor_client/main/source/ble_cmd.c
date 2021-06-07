@@ -17,7 +17,7 @@ static const char *TAG = "BLE_CMD";
 
 extern void ble_mesh_send_sensor_message(uint32_t opcode);
 
-uint32_t get_opcode(char *opcode)
+static uint32_t get_opcode(char *opcode)
 {
     if(strcmp(opcode, "GET_STATUS") == 0){
         return ESP_BLE_MESH_MODEL_OP_SENSOR_GET;
@@ -40,7 +40,7 @@ uint32_t get_opcode(char *opcode)
 static void task_ble_cmd(void *params)
 {
     ble_task_t *ble_task = (ble_task_t *) params;
-    ESP_LOGW(TAG, "[%s] %d, %d, %d. Running.", ble_task->name, (int)ble_task->auto_task, ble_task->opcode, ble_task->delay);
+    ESP_LOGW(TAG, "[%s] %d, %d, %d, %X. Running.", ble_task->name, (int)ble_task->auto_task, ble_task->opcode, ble_task->delay, ble_task->addr);
 
     for(;;)
     {
@@ -50,13 +50,46 @@ static void task_ble_cmd(void *params)
     vTaskDelete(NULL);
 }
 
-char* sanitize_string(char* string)
+static char* sanitize_string(char* string)
 {
     unsigned long size = strlen(string);
     char *new_string = malloc(size * sizeof(char) + 1);
     memset(new_string, '\0', size * sizeof(char) + 1);
     strncpy(new_string, string, size);
     return new_string;
+}
+
+static uint8_t char_to_uint8_t(char c)
+{
+    // A = 65 -> A = 1010 -> 10 in decimal. Thats why substract 55
+    if(c == 'A' || (c > 'A' && c < 'F') || c == 'F')
+    {
+        return (uint8_t) c - 55;
+    }
+    // a = 97 -> a = 1010 -> 10 in decimal. Thats why substract 87
+    else if(c == 'a' || (c > 'a' && c < 'f') || c == 'f')
+    {
+        return (uint8_t) c - 87;
+    }
+    // 0 = 65 -> A = 1010 -> 10 in decimal. Thats why substract 55
+    else if(c == '0' || (c > '0' && c < '9') || c == '9')
+    {
+        return (uint8_t) c - 48;
+    }
+    return 0;
+}
+
+static uint16_t string_to_hex_uint16_t(const char *string)
+{
+    uint16_t cast = 0x0000;
+    if (strlen(string) == 4)
+    {
+        cast = (uint16_t) ( (char_to_uint8_t(string[0]) << 12)
+                          | (char_to_uint8_t(string[1]) << 8)
+                          | (char_to_uint8_t(string[2]) << 4)
+                          |  char_to_uint8_t(string[3]));
+    }
+    return cast;
 }
 
 static action_t* parse_build_task(char *json, int* size)
@@ -78,21 +111,22 @@ static action_t* parse_build_task(char *json, int* size)
 
             cJSON_ArrayForEach(action, actions)
             {
-                const cJSON *elem = NULL;
 
-                elem = cJSON_GetObjectItem(action, "task_name");
-                if(elem != NULL) // tarea a borrar
+                const cJSON *auto_task = cJSON_GetObjectItem(action, "auto");
+                const cJSON *opcode    = cJSON_GetObjectItem(action, "opcode");
+                const cJSON *delay     = cJSON_GetObjectItem(action, "delay");
+                const cJSON *name      = cJSON_GetObjectItem(action, "name");
+                const cJSON *addr      = cJSON_GetObjectItem(action, "addr");
+
+                if(auto_task == NULL && opcode == NULL
+                    && delay == NULL && addr == NULL
+                    && name != NULL && cJSON_IsString(name)) // tarea a borrar
                 {
                     acts[index].opmode = REMOVE;
-                    acts[index].task.name = elem->valuestring;
+                    acts[index].task.name = name->valuestring;
                 }
                 else
                 {
-                    const cJSON *auto_task = cJSON_GetObjectItem(action, "auto");
-                    const cJSON *opcode    = cJSON_GetObjectItem(action, "opcode");
-                    const cJSON *delay     = cJSON_GetObjectItem(action, "delay");
-                    const cJSON *name      = cJSON_GetObjectItem(action, "name");
-
                     if(auto_task != NULL && cJSON_IsBool(auto_task)
                         && opcode != NULL && cJSON_IsString(opcode)
                         && delay != NULL && cJSON_IsNumber(delay)
@@ -103,10 +137,11 @@ static action_t* parse_build_task(char *json, int* size)
                         else
                             acts[index].task.auto_task = false;
 
+                        acts[index].opmode      = CREATE;
                         acts[index].task.name   = sanitize_string(name->valuestring);
                         acts[index].task.delay  = delay->valueint;
                         acts[index].task.opcode = get_opcode(opcode->valuestring);
-                        acts[index].opmode = CREATE;
+                        acts[index].task.addr   = string_to_hex_uint16_t(addr->valuestring);
                     }
                     else
                     {
@@ -158,7 +193,6 @@ void task_parse_json(void *params)
             // Check if json is correct
             size_actions = 0;
             actions = parse_build_task(json_string, &size_actions);
-            ESP_LOGW(TAG, "SIZE: %d", size_actions);
             if(size_actions != 0)
             {
                 if(actions != NULL)
@@ -167,14 +201,22 @@ void task_parse_json(void *params)
                     {
                         if(actions[i].opmode == REMOVE) // remove task
                         {
-                            ESP_LOGI(TAG, "Removing task:\n\tname %s,\n\tauto %d,\n\topcode %u,\n\tdelay %d",
-                                 actions[i].task.name, (int)actions[i].task.auto_task, actions[i].task.opcode, actions[i].task.delay);
+                            ESP_LOGI(TAG, "Removing task %s", actions[i].task.name);
 
                             task_t *task = obtain_task(actions[i].task.name);
                             if(task != NULL)
                             {
-                                vTaskDelete(task->task_handler);
-                                remove_task(actions[i].task.name);
+                                if(task->task_handler != NULL)
+                                {
+                                    ESP_LOGW(TAG, "Entramos a borrar -> %s", task->name);
+                                    //vTaskSuspendAll();
+                                    vTaskDelete(task->task_handler);
+                                    //xTaskResumeAll();
+                                    ESP_LOGW(TAG, "Handler");
+                                    remove_task(actions[i].task.name);
+                                }
+
+                                ESP_LOGI(TAG, "Task %s removed", actions[i].task.name);
 
                                 memset(buff,'\0',MAX_LENGHT_MESSAGE);
                                 sprintf(buff, "Task %s deleted", actions[i].task.name);
@@ -191,21 +233,25 @@ void task_parse_json(void *params)
                         }
                         else if(actions[i].opmode == CREATE)
                         {
-                            ESP_LOGI(TAG, "Creating task:\n\tname %s,\n\tauto %d,\n\topcode %u,\n\tdelay %d",
-                                 actions[i].task.name, (int)actions[i].task.auto_task, actions[i].task.opcode, actions[i].task.delay);
+                            ESP_LOGI(TAG, "Creating task:\n\tname %s,\n\tauto %d,\n\topcode %u,\n\tdelay %d\n\taddr %X",
+                                 actions[i].task.name, (int)actions[i].task.auto_task,
+                                 actions[i].task.opcode, actions[i].task.delay,
+                                 actions[i].task.addr);
 
                             // Check if the tasks exists
-                            TaskHandle_t TaskHandle;
+                            TaskHandle_t TaskHandle = NULL;
                             task_t *new_task = (task_t *)malloc(sizeof(task_t));
                             new_task->name = actions[i].task.name;
-                            new_task->task_handler = TaskHandle;
+                            //new_task->task_handler = TaskHandle;
 
                             status_t status = add_new_task_if_not_exists(new_task);
                             if(status == CREATED)
                             {
                                 ble_task_t aux;
                                 memcpy(&aux, &actions[i].task, sizeof(ble_task_t));
-                                xTaskCreate(&task_ble_cmd, aux.name, 2046, (void *) &aux, 4, &TaskHandle);
+                                xTaskCreate(&task_ble_cmd, aux.name, 2046, (void *) &aux, 5, &TaskHandle);
+                                new_task->task_handler = TaskHandle;
+                                //xTaskCreatePinnedToCore(&task_ble_cmd, aux.name, 2046, (void *) &aux, 5, &TaskHandle, 1);
 
                                 memset(buff,'\0',MAX_LENGHT_MESSAGE);
                                 sprintf(buff, "Task %s created", actions[i].task.name);
@@ -220,7 +266,7 @@ void task_parse_json(void *params)
                                 sprintf(buff, "Task %s exists", actions[i].task.name);
                                 add_message_text_plain(&message->m_content.text_plain, buff);
                             }
-                            free(new_task);
+                            //free(new_task);
                         }
                         else
                         {
@@ -229,9 +275,11 @@ void task_parse_json(void *params)
                     }
                 }
             }
-            else{
+            else
+            {
                 ESP_LOGE(TAG, "Json could be processed or size task equals zero!");
             }
+
             send_message_queue(message);
 
             free(actions);
@@ -242,7 +290,7 @@ void task_parse_json(void *params)
         {
             ESP_LOGE(TAG, "Error in queue -> task_receive_json");
         }
-        vTaskDelay(400 / portTICK_PERIOD_MS);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
     vTaskDelete(NULL);
 }
