@@ -1,30 +1,6 @@
 #!/usr/bin/env ruby
 
 =begin
-actions = {
-    'actions' => [
-        {'task_name' => 'task_get_status'}
-    ]
-}
-
-
-actions = {
-    'actions' => [
-        {
-            'auto' => true,
-            'opcode' => 'GET_STATUS',
-            'delay' => 5,
-            'name' => 'task_get_status'
-        },
-        {
-            'auto' => true,
-            'opcode' => 'GET_STATUS',
-            'delay' => 5,
-            'name' => 'task_get'
-        }
-    ]
-}
-
 {
     "actions" : [
         {
@@ -46,6 +22,7 @@ actions = {
     "actions" : [
         {
             "auto"   : true,
+            "addr"   : "00aa",
             "opcode" : "GET_STATUS",
             "delay"  : 5,
             "name"   : "task_get_status"
@@ -98,16 +75,10 @@ def command(optparser, param, &block)
     optparser.on(*format_param_structure(param), block)
 end
 
-CREATE = {
-    :short => "-c",
-    :large => "--create",
-    :help  => "Create a new task",
-}
-
-REMOVE = {
-    :short => "-r",
-    :large => "--remove",
-    :help  => "Remove a task with a given name",
+ACTIONS = {
+    :short => "-a",
+    :large => "--actions",
+    :help  => "Create or remove tasks",
 }
 
 EDITOR = {
@@ -126,12 +97,8 @@ HELP = {
 options = {}
 optparser = OptionParser.new
 
-command optparser, CREATE do
-    options[:create] = true
-end
-
-command optparser, REMOVE do
-    options[:remove] = true
+command optparser, ACTIONS do
+    options[:actions] = true
 end
 
 command optparser, EDITOR do |elems|
@@ -155,18 +122,18 @@ if ARGV.length == 0
     exit 1
 end
 
+editor = options[:editor] || ENV['EDITOR'] # parameter or environment variable
+if !editor
+    puts "Use -e parameter or create EDITOR environment variable\n"
+    exit 1
+end
+
 config = YAML::load_file(CONFIG_FILE)
 
 # create mqtt object
 mqtt_client = MQTT.new(config[:mqtt])
 
-editor = options[:editor] || ENV['EDITOR'] # parameter or environment variable
-if !editor
-    puts "Please, create EDITOR environment variable -> export EDITOR=your favorite editor"
-    exit 1
-end
-
-if options[:create]
+if options[:actions]
     begin
         # Build json
         actions = ActionParser.new
@@ -189,8 +156,4 @@ if options[:create]
         STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}."
         exit 1
     end
-end
-
-if options[:remove]
-    puts "Removing new task..."
 end
