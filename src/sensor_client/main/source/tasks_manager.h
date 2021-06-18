@@ -12,6 +12,7 @@ typedef struct task_t {
 typedef struct node_t {
     task_t *task;
     struct node_t *next;
+    struct node_t *prev;
 } node_t;
 
 typedef struct tasks_t {
@@ -38,9 +39,9 @@ status_t task_exists(task_t *new_task);
 status_t add_new_task_if_not_exists(task_t *new_task);
 
 /* Obtain */
-task_t* obtain_task(char *name);
+task_t* obtain_task(task_t* task);
 
 /* Remove */
-status_t remove_task(char *name);
+status_t remove_task(task_t* remove_task);
 
 #endif

@@ -5,12 +5,14 @@
     "actions" : [
         {
             "auto"   : true,
+            "addr"   : "00aa",
             "opcode" : "GET_STATUS",
             "delay"  : 5,
             "name"   : "task_get_status"
         },
         {
             "auto"   : true,
+            "addr"   : "00bb",
             "opcode" : "GET_STATUS",
             "delay"  : 5,
             "name"   : "task_get"

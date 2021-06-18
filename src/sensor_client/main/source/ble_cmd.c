@@ -203,25 +203,27 @@ void task_parse_json(void *params)
                         {
                             ESP_LOGI(TAG, "Removing task %s", actions[i].task.name);
 
-                            task_t *task = obtain_task(actions[i].task.name);
+                            task_t found = {
+                                .name = actions[i].task.name,
+                            };
+                            task_t *task = obtain_task(&found);
                             if(task != NULL)
                             {
                                 if(task->task_handler != NULL)
                                 {
-                                    ESP_LOGW(TAG, "Entramos a borrar -> %s", task->name);
-                                    //vTaskSuspendAll();
                                     vTaskDelete(task->task_handler);
-                                    //xTaskResumeAll();
-                                    ESP_LOGW(TAG, "Handler");
-                                    remove_task(actions[i].task.name);
+                                    remove_task(task);
+
+                                    ESP_LOGI(TAG, "Task %s removed", actions[i].task.name);
+
+                                    memset(buff,'\0',MAX_LENGHT_MESSAGE);
+                                    sprintf(buff, "Task %s deleted", actions[i].task.name);
+                                    add_message_text_plain(&message->m_content.text_plain, buff);
                                 }
-
-                                ESP_LOGI(TAG, "Task %s removed", actions[i].task.name);
-
-                                memset(buff,'\0',MAX_LENGHT_MESSAGE);
-                                sprintf(buff, "Task %s deleted", actions[i].task.name);
-                                add_message_text_plain(&message->m_content.text_plain, buff);
-
+                                else
+                                {
+                                    //message: there was a problem with the handler of task %s.
+                                }
                             }
                             else
                             {
@@ -250,7 +252,7 @@ void task_parse_json(void *params)
                                 ble_task_t aux;
                                 memcpy(&aux, &actions[i].task, sizeof(ble_task_t));
                                 xTaskCreate(&task_ble_cmd, aux.name, 2046, (void *) &aux, 5, &TaskHandle);
-                                new_task->task_handler = TaskHandle;
+                                new_task->task_handler = TaskHandle; // save the handler after set it when create the task. IMPORTANT!!
                                 //xTaskCreatePinnedToCore(&task_ble_cmd, aux.name, 2046, (void *) &aux, 5, &TaskHandle, 1);
 
                                 memset(buff,'\0',MAX_LENGHT_MESSAGE);

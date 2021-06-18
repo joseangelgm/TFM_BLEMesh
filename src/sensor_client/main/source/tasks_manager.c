@@ -36,21 +36,19 @@ static void free_node(node_t *node)
 }
 
 /**
- * @brief Free all nodes contains within task_manager
+ * @brief Free all nodes within task_manager
  *      - task_manager->first = NULL
  *      - task_manager->last = NULL
  *      - task_manager->num_tasks = 0
  */
 void free_tasks_manager()
 {
-    node_t *first = task_manager->first;
-    node_t *aux;
-
-    while(first != NULL){
-        aux = first->next;
-        free_node(first);
-        first = aux;
+    for(node_t* temp = task_manager->first->next; temp != NULL; temp = temp->next)
+    {
+        free_node(temp->prev);
     }
+
+    free_node(task_manager->last);
 
     task_manager->first = NULL;
     task_manager->last = NULL;
@@ -63,7 +61,9 @@ void free_tasks_manager()
 static bool equals(task_t *task_l, task_t *task_r)
 {
     bool equals = false;
-    if(strcmp(task_l->name, task_r->name) == 0){ //equals, task exists
+    if(task_l != NULL && task_r != NULL
+       && strcmp(task_l->name, task_r->name) == 0)
+    {
         equals = true;
     }
     return equals;
@@ -74,14 +74,30 @@ static bool equals(task_t *task_l, task_t *task_r)
  */
 status_t task_exists(task_t *new_task)
 {
-    node_t *aux = task_manager->first;
     status_t status = NOT_EXISTS;
-    while(status == NOT_EXISTS && aux != NULL){
-        if(equals(aux->task, new_task)){
+
+    if(task_manager->first != NULL && task_manager->last != NULL)
+    {
+
+        if(equals(task_manager->first->task, new_task))
+        {
             status = EXISTS;
         }
-        else{
-            aux = aux->next;
+        else if(equals(task_manager->last->task, new_task))
+        {
+            status = EXISTS;
+        }
+        else if(task_manager->first != task_manager->last)
+        {
+            for(node_t *temp = task_manager->first->next;
+                temp != task_manager->last && status == NOT_EXISTS;
+                temp = temp->next)
+            {
+                if(equals(temp->task, new_task))
+                {
+                    status = EXISTS;
+                }
+            }
         }
     }
     return status;
@@ -92,17 +108,23 @@ status_t task_exists(task_t *new_task)
  */
 static void add_task(task_t *new_task)
 {
+
     node_t *new_elem = (node_t *)malloc(sizeof(node_t));
     new_elem->task = new_task;
     new_elem->next = NULL;
+    new_elem->prev = NULL;
 
-    if(task_manager->first == NULL){
+    if(task_manager->first == NULL)
+    {
         task_manager->first = new_elem;
         task_manager->last = new_elem;
     }
-    else{
-        task_manager->last->next = new_elem;
+    else
+    {
+        node_t *aux = task_manager->last;
         task_manager->last = new_elem;
+        aux->next = task_manager->last;
+        task_manager->last->prev = aux;
     }
 
     task_manager->num_tasks++;
@@ -124,68 +146,85 @@ status_t add_new_task_if_not_exists(task_t *new_task)
 /**
  * @brief obtain the task's data based on a given name
  */
-task_t* obtain_task(char *name)
+task_t* obtain_task(task_t* task)
 {
-    task_t *task = NULL;
-    node_t *aux = task_manager->first;
 
-    task_t task_found = {
-        .name = name,
-    };
+    if(task_manager->first != NULL && task_manager->last != NULL)
+    {
+        if(equals(task_manager->first->task, task))
+            return task_manager->first->task;
 
-    status_t status = NOT_EXISTS;
+        if(equals(task_manager->last->task, task))
+            return task_manager->last->task;
 
-    while(status == NOT_EXISTS && aux != NULL){
-        if(equals(aux->task, &task_found)){
-            status = EXISTS;
-            task = aux->task;
+        task_t *found_task = NULL;
+        status_t status = NOT_EXISTS;
+
+        for(node_t *temp = task_manager->first->next;
+            temp != task_manager->last->prev && status == NOT_EXISTS;
+            temp = temp->next)
+        {
+            if(equals(temp->task, task))
+            {
+                status = EXISTS;
+                found_task = temp->task;
+            }
         }
-        else{
-            aux = aux->next;
-        }
+        return found_task;
     }
-    return task;
+    return NULL;
 }
 
 /**
  * @brief remove a task from list based on a given name
  */
-status_t remove_task(char *name)
+status_t remove_task(task_t* remove_task)
 {
-    node_t *aux = task_manager->first;
-    node_t *temp = NULL;
-
-    task_t task = {
-        .name = name,
-    };
-
     status_t status = NOT_EXISTS;
 
     // si es el primero, lo borramos y apuntamos al siguiente
-    if(equals(aux->task, &task))
+    if(task_manager->first != NULL && equals(task_manager->first->task, remove_task))
     {
-        temp = aux;
-        aux = aux->next;
-        status = EXISTS;
-        free_node(temp);
-    }
-    //si no, lo buscamos
-    else{
-        while(status == NOT_EXISTS && temp != NULL)
+        if(task_manager->first == task_manager->last)
         {
-            if(equals(aux->task, &task))
+            free_node(task_manager->first);
+        }
+        else
+        {
+            task_manager->first = task_manager->first->next;
+            free_node(task_manager->first->prev);
+        }
+        status = EXISTS;
+        task_manager->num_tasks--;
+    }
+    // si es la ultima, lo borramos y apuntamos a la anterior
+    else if(task_manager->last != NULL && equals(task_manager->last->task, remove_task))
+    {
+        if(task_manager->first == task_manager->last)
+        {
+            free_node(task_manager->first);
+        }
+        else
+        {
+            task_manager->last = task_manager->last->prev;
+            free_node(task_manager->last->next);
+        }
+        status = EXISTS;
+        task_manager->num_tasks--;
+    }
+    else
+    {
+        for(node_t* temp = task_manager->first->next; temp != task_manager->last->prev && status == NOT_EXISTS; temp = temp->next)
+        {
+            if(equals(temp->task, remove_task))
             {
                 status = EXISTS;
-                temp->next = aux->next;
-                free_node(aux);
-            }
-            else
-            {
-                temp = aux;
-                aux = aux->next;
+                temp->prev->next = temp->next;
+                temp->next->prev = temp->prev;
+                free_node(temp);
+                task_manager->num_tasks--;
             }
         }
     }
-
     return status;
 }
