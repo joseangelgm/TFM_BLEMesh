@@ -2,6 +2,7 @@
 #include "esp_log.h"
 
 #include "source/tasks_manager.h"
+#include "source/messages_parser.h"
 
 static const char* TAG = "TaskManager";
 
@@ -182,10 +183,10 @@ status_t remove_task(task_t* remove_task)
 {
     status_t status = NOT_EXISTS;
 
-    // si es el primero, lo borramos y apuntamos al siguiente
+    // if it is the first element, remove and point to the next element
     if(task_manager->first != NULL && equals(task_manager->first->task, remove_task))
     {
-        if(task_manager->first == task_manager->last)
+        if(task_manager->first == task_manager->last)// if we have one element
         {
             free_node(task_manager->first);
         }
@@ -197,7 +198,7 @@ status_t remove_task(task_t* remove_task)
         status = EXISTS;
         task_manager->num_tasks--;
     }
-    // si es la ultima, lo borramos y apuntamos a la anterior
+     // if it is the last element, remove and point to the previous element
     else if(task_manager->last != NULL && equals(task_manager->last->task, remove_task))
     {
         if(task_manager->first == task_manager->last)
@@ -227,4 +228,31 @@ status_t remove_task(task_t* remove_task)
         }
     }
     return status;
+}
+
+/**
+ * @brief Queue a message_t with task info
+ */
+void queue_list_task()
+{
+    message_t* tasks_info = create_message_text_plain();
+    char buff[MAX_LENGHT_MESSAGE];
+
+    if(task_manager->num_tasks > 0)
+    {
+        for(node_t *temp = task_manager->first; temp != NULL; temp = temp->next)
+        {
+            memset(buff,'\0',MAX_LENGHT_MESSAGE);
+            sprintf(buff, "Task: Name -> %s", temp->task->name);
+            add_message_text_plain(&tasks_info->m_content.text_plain, buff);
+        }
+    }
+    else
+    {
+        memset(buff,'\0',MAX_LENGHT_MESSAGE);
+        sprintf(buff, "No tasks!!");
+        add_message_text_plain(&tasks_info->m_content.text_plain, buff);
+    }
+
+    send_message_queue(tasks_info);
 }

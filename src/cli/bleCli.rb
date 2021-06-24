@@ -27,7 +27,7 @@
             "addr"   : "00aa",
             "opcode" : "GET_STATUS",
             "delay"  : 5,
-            "name"   : "task_get_status"
+            "name"   : "task_get_status_2"
         }
     ]
 }
@@ -83,6 +83,12 @@ ACTIONS = {
     :help  => "Create or remove tasks",
 }
 
+TASKS = {
+    :short => "-t",
+    :large => "--tasks",
+    :help  => "Obtain a json with tasks info",
+}
+
 EDITOR = {
     :short => "-e",
     :large => "--editor [editor]",
@@ -96,11 +102,19 @@ HELP = {
     :help  => "Display this help",
 }
 
+CMD = {
+    :tasks => {'cmd' => 'tasks'},
+}
+
 options = {}
 optparser = OptionParser.new
 
 command optparser, ACTIONS do
     options[:actions] = true
+end
+
+command optparser, TASKS do
+    options[:tasks] = true
 end
 
 command optparser, EDITOR do |elems|
@@ -125,24 +139,51 @@ if ARGV.length == 0
 end
 
 editor = options[:editor] || ENV['EDITOR'] # parameter or environment variable
-if !editor
+if !editor && options[:actions]
     puts "Use -e parameter or create EDITOR environment variable\n"
     exit 1
 end
 
 config = YAML::load_file(CONFIG_FILE)
 
-# create mqtt object
-mqtt_client = MQTT.new(config[:mqtt])
+
 
 if options[:actions]
     begin
+        # create mqtt object
+        mqtt_client = MQTT.new(config[:mqtt_ble])
+
         # Build json
         actions = ActionParser.new
         actions.create_json(editor)
         puts
+
         # Send json and prompt response
         mqtt_client.send_json(actions.actions_json)
+        json_received = mqtt_client.response
+        puts "#{"Json received".bold.green}"
+        pp json_received
+    rescue PahoMqtt::Exception => e
+        STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n"\
+                    "Ensule that mqtt is powered on."
+        exit 1
+    rescue Timeout::Error => e
+        STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n"\
+                    "The client spent more time than #{mqtt_client.time_to_wait} seconds. Set more timeout in #{CONFIG_FILE}"
+        exit 1
+    rescue Exception => e
+        STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}."
+        exit 1
+    end
+end
+
+if options[:tasks]
+    begin
+        # create mqtt object
+        mqtt_client = MQTT.new(config[:mqtt_cmd])
+
+        # Send json and prompt response
+        mqtt_client.send_json(CMD[:tasks])
         json_received = mqtt_client.response
         puts "#{"Json received".bold.green}"
         pp json_received

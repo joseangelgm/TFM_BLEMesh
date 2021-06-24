@@ -1,9 +1,17 @@
 ---
-:mqtt:
+:mqtt_ble:
   #:ip: "192.168.0.183"
+  :ip: "127.0.0.1"
+  :port: 1883
+  :topics:
+    :topic_pub: "/sensors/actions/ble"
+    :topic_sub: "/sensors/results/cli"
+  :time_to_wait_response: 40 # seconds
+
+:mqtt_cmd:
   :ip: "127.0.0.1"
   :port: 1883
   :topics:
     :topic_pub: "/sensors/commands"
     :topic_sub: "/sensors/results/cli"
-  :time_to_wait_response: 40 # seconds
+  :time_to_wait_response: 10 # seconds

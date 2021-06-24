@@ -44,4 +44,7 @@ task_t* obtain_task(task_t* task);
 /* Remove */
 status_t remove_task(task_t* remove_task);
 
+/* Queue a message_t with task info */
+void queue_list_task();
+
 #endif

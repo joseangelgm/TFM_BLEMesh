@@ -1,16 +1,19 @@
 #include "esp_log.h"
 #include "mqtt_client.h"
+#include "cJSON.h"
 
 #include "source/mqtt.h"
 #include "source/ble_cmd.h"
 #include "source/messages_parser.h"
 
 extern void init_tasks_manager();
+extern void queue_list_task();
 
 static const char *TAG = "MQTT";
 static const char *PUB_TOPIC_DASH = "/sensors/results/dashboard";
 static const char *PUB_TOPIC_CLI = "/sensors/results/cli";
-static const char *SUB_TOPIC = "/sensors/commands"; // to execute commands
+static const char *SUB_TOPIC_BLE = "/sensors/actions/ble"; // to execute ble actions
+static const char *SUB_TOPIC_CMD = "/sensors/commands"; // to execute commands
 
 // mqtt client to send messages to PUB_TOPIC
 static esp_mqtt_client_handle_t client_mqtt;
@@ -25,8 +28,13 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-            ESP_LOGW(TAG, "Suscribing to %s", SUB_TOPIC);
-            esp_mqtt_client_subscribe(client, SUB_TOPIC, 0);
+
+            ESP_LOGW(TAG, "Suscribing to %s", SUB_TOPIC_BLE);
+            esp_mqtt_client_subscribe(client, SUB_TOPIC_BLE, 0);
+
+            ESP_LOGW(TAG, "Suscribing to %s", SUB_TOPIC_CMD);
+            esp_mqtt_client_subscribe(client, SUB_TOPIC_CMD, 0);
+
             break;
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
@@ -56,12 +64,26 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             ESP_LOGI(TAG, "Topic: %s, data: %s", topic, data);
 
             // Receive a request to create a task
-            if(strcmp(topic, SUB_TOPIC) == 0){
+            if(strcmp(topic, SUB_TOPIC_BLE) == 0)
+            {
                 mqtt_json json = {
                     .json = event->data,
                     .size = event->data_len,
                 };
                 xQueueSendToBack(queue_receive, &json, 0);
+            }
+            else if(strcmp(topic, SUB_TOPIC_CMD) == 0)
+            {
+                cJSON *root = cJSON_Parse(data);
+                const cJSON *cmd = cJSON_GetObjectItem(root, "cmd");
+
+                if(cmd != NULL)
+                {
+                    if(strcmp(cmd->valuestring, "tasks") == 0)
+                    {
+                        queue_list_task();
+                    }
+                }
             }
 
             free(topic);
@@ -98,11 +120,11 @@ static void task_send_response_mqtt(void* params)
             {
                 if(message.type == PLAIN_TEXT)
                 {
-                    esp_mqtt_client_publish(client_mqtt, PUB_TOPIC_CLI, json, 0, 0, 0);
+                    esp_mqtt_client_publish(client_mqtt, PUB_TOPIC_CLI, json, 0, 0, 0); // send to cli
                 }
                 else
                 {
-                    esp_mqtt_client_publish(client_mqtt, PUB_TOPIC_DASH, json, 0, 0, 0);
+                    esp_mqtt_client_publish(client_mqtt, PUB_TOPIC_DASH, json, 0, 0, 0); // send to dashboard
                 }
                 free(json);
             }

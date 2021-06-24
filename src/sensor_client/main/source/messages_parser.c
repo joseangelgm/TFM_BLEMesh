@@ -6,7 +6,7 @@
 
 #include "source/messages_parser.h"
 
-//static const char *TAG = "MES_PARSER";
+static const char *TAG = "MSG_PARSER";
 
 static QueueHandle_t queue_message;
 
@@ -21,13 +21,16 @@ void initialize_messages_parser_queue(QueueHandle_t queue)
 }
 
 /**
- * @brief queue a message_t
+ * @brief queue a message_t. It will be process in mqtt module.
  */
 void send_message_queue(message_t *m)
 {
     xQueueSendToBack(queue_message, m, 0);
 }
 
+/**
+ * @brief obtain a string from a text plain message
+ */
 static char* message_to_text_plain(text_t *t)
 {
     char* json = NULL;
@@ -73,6 +76,9 @@ char* message_to_json(message_t *message)
     return NULL;
 }
 
+/**
+ * @brief return a message_t initialized as text_plain
+ */
 message_t* create_message_text_plain()
 {
     message_t* message = malloc(sizeof(message_t));
@@ -82,13 +88,14 @@ message_t* create_message_text_plain()
     return message;
 }
 
+/**
+ * add a message to a text_plain message type
+ */
 void add_message_text_plain(text_t* text, char* string)
 {
-    //ESP_LOGW(TAG, "MESSAGE: %s", string);
     if(text->num_messages < MAX_NUM_MESSAGES)
     {
-        strcpy(text->messages[text->num_messages], string);
-        //ESP_LOGW(TAG, "COPIED MESSAGE: %s", text->messages[text->num_messages]);
+        strncpy(text->messages[text->num_messages], string, MAX_LENGHT_MESSAGE);
         text->num_messages++;
     }
 }
