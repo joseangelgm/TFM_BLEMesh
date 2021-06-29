@@ -183,47 +183,50 @@ status_t remove_task(task_t* remove_task)
 {
     status_t status = NOT_EXISTS;
 
-    // if it is the first element, remove and point to the next element
-    if(task_manager->first != NULL && equals(task_manager->first->task, remove_task))
+    if(task_manager->first != NULL && task_manager->last != NULL)
     {
-        if(task_manager->first == task_manager->last)// if we have one element
+        // if it is the first element, remove and point to the next element
+        if(equals(task_manager->first->task, remove_task))
         {
-            free_node(task_manager->first);
-        }
-        else
-        {
-            task_manager->first = task_manager->first->next;
-            free_node(task_manager->first->prev);
-        }
-        status = EXISTS;
-        task_manager->num_tasks--;
-    }
-     // if it is the last element, remove and point to the previous element
-    else if(task_manager->last != NULL && equals(task_manager->last->task, remove_task))
-    {
-        if(task_manager->first == task_manager->last)
-        {
-            free_node(task_manager->first);
-        }
-        else
-        {
-            task_manager->last = task_manager->last->prev;
-            free_node(task_manager->last->next);
-        }
-        status = EXISTS;
-        task_manager->num_tasks--;
-    }
-    else
-    {
-        for(node_t* temp = task_manager->first->next; temp != task_manager->last->prev && status == NOT_EXISTS; temp = temp->next)
-        {
-            if(equals(temp->task, remove_task))
+            if(task_manager->first == task_manager->last)// if we have one element
             {
-                status = EXISTS;
-                temp->prev->next = temp->next;
-                temp->next->prev = temp->prev;
-                free_node(temp);
-                task_manager->num_tasks--;
+                free_node(task_manager->first);
+            }
+            else
+            {
+                task_manager->first = task_manager->first->next;
+                free_node(task_manager->first->prev);
+            }
+            status = EXISTS;
+            task_manager->num_tasks--;
+        }
+        // if it is the last element, remove and point to the previous element
+        else if(equals(task_manager->last->task, remove_task))
+        {
+            if(task_manager->first == task_manager->last)
+            {
+                free_node(task_manager->first);
+            }
+            else
+            {
+                task_manager->last = task_manager->last->prev;
+                free_node(task_manager->last->next);
+            }
+            status = EXISTS;
+            task_manager->num_tasks--;
+        }
+        else
+        {
+            for(node_t* temp = task_manager->first->next; temp != task_manager->last->prev && status == NOT_EXISTS; temp = temp->next)
+            {
+                if(equals(temp->task, remove_task))
+                {
+                    status = EXISTS;
+                    temp->prev->next = temp->next;
+                    temp->next->prev = temp->prev;
+                    free_node(temp);
+                    task_manager->num_tasks--;
+                }
             }
         }
     }
