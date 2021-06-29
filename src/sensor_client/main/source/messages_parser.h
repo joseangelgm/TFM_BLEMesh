@@ -10,6 +10,8 @@
 // Type of the messages, this will affect to message's parser
 typedef enum {
     PLAIN_TEXT, // simple message with info, errors
+    TASKS,
+    MEASURE,
     GET_STATUS,
     GET_CADENCE,
     GET_DESCRIPTOR,
@@ -52,9 +54,14 @@ void send_message_queue(message_t *message);
 char* message_to_json(message_t *message);
 
 /**
- * @brief Return message_t prepared to be text_plain type
+ * @brief Return message_t prepared to be PLAIN_TEXT type
  */
 message_t* create_message_text_plain();
+
+/**
+ * @brief Return message_t prepared to be TASKS type
+ */
+message_t* create_message_tasks();
 
 /**
  * @brief add a new message to a message of type text_plain

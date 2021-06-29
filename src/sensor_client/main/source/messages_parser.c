@@ -26,12 +26,13 @@ void initialize_messages_parser_queue(QueueHandle_t queue)
 void send_message_queue(message_t *m)
 {
     xQueueSendToBack(queue_message, m, 0);
+    free(m);
 }
 
 /**
- * @brief obtain a string from a text plain message
+ * @brief obtain a string from a TEXT_PLAIN or TASKS message type
  */
-static char* message_to_text_plain(text_t *t)
+static char* text_plain_to_json(text_t *t, char* key)
 {
     char* json = NULL;
     cJSON *root = cJSON_CreateObject();
@@ -42,7 +43,7 @@ static char* message_to_text_plain(text_t *t)
     if (messages == NULL)
         goto error;
 
-    cJSON_AddItemToObject(root, "messages", messages);
+    cJSON_AddItemToObject(root, key, messages);
     cJSON *message = NULL;
     char buff[MAX_LENGHT_MESSAGE];
 
@@ -71,19 +72,34 @@ error:
 char* message_to_json(message_t *message)
 {
     if(message->type == PLAIN_TEXT)
-        return message_to_text_plain(&message->m_content.text_plain);
+        return text_plain_to_json(&message->m_content.text_plain, "messages");
+
+    if(message->type == TASKS)
+        return text_plain_to_json(&message->m_content.text_plain, "tasks");
 
     return NULL;
 }
 
 /**
- * @brief return a message_t initialized as text_plain
+ * @brief Return message_t prepared to be PLAIN_TEXT type
  */
 message_t* create_message_text_plain()
 {
     message_t* message = malloc(sizeof(message_t));
     message->m_content.text_plain.num_messages = 0;
     message->type = PLAIN_TEXT;
+
+    return message;
+}
+
+/**
+ * @brief Return message_t prepared to be TASKS type
+ */
+message_t* create_message_tasks()
+{
+    message_t* message = malloc(sizeof(message_t));
+    message->m_content.text_plain.num_messages = 0;
+    message->type = TASKS;
 
     return message;
 }

@@ -105,12 +105,11 @@ static void task_send_response_mqtt(void* params)
 {
     QueueHandle_t queue = (*(QueueHandle_t *) params);
     BaseType_t xStatus;
-    message_t message;
+    message_t message; // all data is copied to queue area. Free after send it.
     char* json = NULL;
 
     for(;;)
     {
-        // free message?????
         xStatus = xQueueReceive(queue, &message, portMAX_DELAY);
         if(xStatus == pdTRUE)
         {
@@ -118,7 +117,7 @@ static void task_send_response_mqtt(void* params)
             json = message_to_json(&message);
             if(json != NULL)
             {
-                if(message.type == PLAIN_TEXT)
+                if(message.type == PLAIN_TEXT || message.type == TASKS)
                 {
                     esp_mqtt_client_publish(client_mqtt, PUB_TOPIC_CLI, json, 0, 0, 0); // send to cli
                 }
