@@ -15,7 +15,7 @@
 
 static const char *TAG = "BLE_CMD";
 
-extern void ble_mesh_send_sensor_message(uint32_t opcode);
+extern void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr);
 
 static uint32_t get_opcode(char *opcode)
 {
@@ -44,7 +44,7 @@ static void task_ble_cmd(void *params)
 
     for(;;)
     {
-        ble_mesh_send_sensor_message(ble_task->opcode);
+        ble_mesh_send_sensor_message(ble_task->opcode, ble_task->addr);
         vTaskDelay(ble_task->delay * 1000 / portTICK_PERIOD_MS);
     }
     vTaskDelete(NULL);

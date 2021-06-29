@@ -30,8 +30,7 @@ FLUJO:
 
 Datos interesantes
 
-    Dato unico que determina que modelo estamos usando. Hay uno para el cliente y otro para el servidor dentro
-    de un mismo modelo:
+    Dato unico que determina que modelo estamos usando. Hay uno para el cliente y otro para el servidor:
         - model_id para el cliente  (modelo sensor):
             . sensor client = 1102
         - model_id para el servidor (modelo sensor):
@@ -94,13 +93,13 @@ static esp_ble_mesh_prov_t provision = {
 };
 
 static void ble_mesh_set_msg_common(esp_ble_mesh_client_common_param_t *common,
-                                esp_ble_mesh_model_t *model, uint32_t opcode)
+                                esp_ble_mesh_model_t *model, uint32_t opcode, uint16_t addr)
 {
     common->opcode = opcode;
     common->model = model;
     common->ctx.net_idx = prov_key.net_idx;
     common->ctx.app_idx = prov_key.app_idx;
-    common->ctx.addr = 0xFFFF, //Pasarle la direccion a la que queremos enviar
+    common->ctx.addr = addr, //Pasarle la direccion a la que queremos enviar
     common->ctx.send_ttl = MSG_SEND_TTL;
     common->ctx.send_rel = MSG_SEND_REL;
     common->msg_timeout = MSG_TIMEOUT;
@@ -147,7 +146,7 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
     }
 }
 
-void ble_mesh_send_sensor_message(uint32_t opcode)
+void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr)
 {
 
     ESP_LOGI(TAG, "ble_mesh_send_sensor_message: 0x%04x, 0x%04x", opcode, ESP_BLE_MESH_MODEL_OP_SENSOR_GET);
@@ -156,7 +155,7 @@ void ble_mesh_send_sensor_message(uint32_t opcode)
     esp_ble_mesh_client_common_param_t common = {0};
     esp_err_t err = ESP_OK;
 
-    ble_mesh_set_msg_common(&common, sensor_client.model, opcode);
+    ble_mesh_set_msg_common(&common, sensor_client.model, opcode, addr);
     switch (opcode) {
     case ESP_BLE_MESH_MODEL_OP_SENSOR_CADENCE_GET:
         get.cadence_get.property_id = sensor_prop_id;
@@ -177,7 +176,7 @@ void ble_mesh_send_sensor_message(uint32_t opcode)
     }
 }
 
-static void ble_mesh_sensor_timeout(uint32_t opcode)
+static void ble_mesh_sensor_timeout(uint32_t opcode, uint16_t addr)
 {
     switch (opcode) {
     case ESP_BLE_MESH_MODEL_OP_SENSOR_DESCRIPTOR_GET:
@@ -211,8 +210,7 @@ static void ble_mesh_sensor_timeout(uint32_t opcode)
         ESP_LOGE(TAG, "Unknown Sensor Get/Set opcode 0x%04x", opcode);
         return;
     }
-
-    ble_mesh_send_sensor_message(opcode);
+    ble_mesh_send_sensor_message(opcode, addr);
 }
 
 static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t event,
@@ -343,8 +341,8 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
     */
     case ESP_BLE_MESH_SENSOR_CLIENT_PUBLISH_EVT:
         break;
-    case ESP_BLE_MESH_SENSOR_CLIENT_TIMEOUT_EVT:
-        ble_mesh_sensor_timeout(param->params->opcode);
+    case ESP_BLE_MESH_SENSOR_CLIENT_TIMEOUT_EVT: // Si da timeout, vuelve a enviar el mensaje
+        //ble_mesh_sensor_timeout(param->params->opcode, param->params->ctx.addr);
     default:
         break;
     }
