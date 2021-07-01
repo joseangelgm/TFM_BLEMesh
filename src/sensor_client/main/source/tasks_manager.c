@@ -238,7 +238,7 @@ status_t remove_task(task_t* remove_task)
  */
 void queue_list_task()
 {
-    message_t* tasks_info = create_message_tasks();
+    message_t* tasks_info = create_message(TASKS);
     char buff[MAX_LENGHT_MESSAGE];
 
     if(task_manager->num_tasks > 0)

@@ -183,7 +183,7 @@ void task_parse_json(void *params)
         xStatus = xQueueReceive(queue, &json_received, portMAX_DELAY);
         if(xStatus == pdTRUE)
         {
-            message_t* message = create_message_text_plain();
+            message_t* message = create_message(PLAIN_TEXT);
 
             json_string = (char *) malloc(json_received.size * sizeof(char) + 1);
             memset(json_string, '\0',  json_received.size * sizeof(char) + 1);

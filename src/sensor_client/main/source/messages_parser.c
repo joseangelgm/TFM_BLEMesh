@@ -81,25 +81,30 @@ char* message_to_json(message_t *message)
 }
 
 /**
- * @brief Return message_t prepared to be PLAIN_TEXT type
+ * @brief Return message_t prepared for the type given
  */
-message_t* create_message_text_plain()
+message_t* create_message(message_type_t type)
 {
-    message_t* message = malloc(sizeof(message_t));
-    message->m_content.text_plain.num_messages = 0;
-    message->type = PLAIN_TEXT;
 
-    return message;
-}
+    message_t* message = NULL;
 
-/**
- * @brief Return message_t prepared to be TASKS type
- */
-message_t* create_message_tasks()
-{
-    message_t* message = malloc(sizeof(message_t));
-    message->m_content.text_plain.num_messages = 0;
-    message->type = TASKS;
+    if(type == PLAIN_TEXT || type == TASKS)
+    {
+        message = malloc(sizeof(message_t));
+        message->m_content.text_plain.num_messages = 0;
+        message->type = type;
+    }
+    else if(type == MEASURE)
+    {
+        message = malloc(sizeof(message_t));
+        message->m_content.measure.value = 0;
+        message->m_content.measure.addr = 0x0000;
+        message->type = type;
+    }
+    else
+    {
+        free(message);
+    }
 
     return message;
 }

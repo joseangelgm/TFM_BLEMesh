@@ -20,15 +20,24 @@ typedef enum {
 } message_type_t;
 
 /*********** Types of messages ******************/
-// plain text: errors, info messages
+// plain text: errors, info messages, tasks list
 typedef struct text_t {
     int num_messages;
     char messages[MAX_NUM_MESSAGES][MAX_LENGHT_MESSAGE];
 } text_t;
 
+typedef struct measure_t {
+    uint16_t addr;
+    int value;
+} measure_t;
+
+/************************************************/
+
+
 /* A message will only have one of the following fields */
 typedef union message_content_t {
     text_t text_plain;
+    measure_t measure;
 } message_content_t;
 
 /* General structure for every message */
@@ -54,14 +63,9 @@ void send_message_queue(message_t *message);
 char* message_to_json(message_t *message);
 
 /**
- * @brief Return message_t prepared to be PLAIN_TEXT type
+ * @brief Return message_t prepared for the type given
  */
-message_t* create_message_text_plain();
-
-/**
- * @brief Return message_t prepared to be TASKS type
- */
-message_t* create_message_tasks();
+message_t* create_message(message_type_t type);
 
 /**
  * @brief add a new message to a message of type text_plain
