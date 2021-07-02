@@ -26,7 +26,6 @@ void initialize_messages_parser_queue(QueueHandle_t queue)
 void send_message_queue(message_t *m)
 {
     xQueueSendToBack(queue_message, m, 0);
-    free(m);
 }
 
 /**
@@ -66,6 +65,39 @@ error:
 }
 
 /**
+ * @brief obtaint a string from MEASURE type
+ */
+static char* measure_to_json(measure_t *m)
+{
+
+    char* json = NULL;
+    cJSON *root = cJSON_CreateObject();
+    if(root == NULL)
+        goto error;
+
+    char addr_str[10];
+    memset(addr_str,'\0',10);
+    sprintf(addr_str, "%d", m->addr);
+
+    cJSON *addr = cJSON_CreateString(addr_str);
+    if(addr == NULL)
+        goto error;
+
+    cJSON *measure = cJSON_CreateNumber(m->value);
+    if(measure == NULL)
+        goto error;
+
+    cJSON_AddItemToObject(root, "addr", addr);
+    cJSON_AddItemToObject(root, "measure", measure);
+
+    json = cJSON_Print(root);
+
+error:
+    cJSON_Delete(root);
+    return json;
+}
+
+/**
  * @brief Return a string json that represent a message
  * Internally, transform the message based on message_type_t
  */
@@ -77,6 +109,9 @@ char* message_to_json(message_t *message)
     if(message->type == TASKS)
         return text_plain_to_json(&message->m_content.text_plain, "tasks");
 
+    if(message->type == MEASURE)
+        return measure_to_json(&message->m_content.measure);
+
     return NULL;
 }
 
@@ -85,28 +120,26 @@ char* message_to_json(message_t *message)
  */
 message_t* create_message(message_type_t type)
 {
-
     message_t* message = NULL;
 
     if(type == PLAIN_TEXT || type == TASKS)
     {
-        message = malloc(sizeof(message_t));
+        message = (message_t*) malloc(sizeof(message_t));
         message->m_content.text_plain.num_messages = 0;
         message->type = type;
+        return message;
     }
-    else if(type == MEASURE)
+
+    if(type == MEASURE)
     {
-        message = malloc(sizeof(message_t));
+        message = (message_t*) malloc(sizeof(message_t));
         message->m_content.measure.value = 0;
         message->m_content.measure.addr = 0x0000;
         message->type = type;
-    }
-    else
-    {
-        free(message);
+        return message;
     }
 
-    return message;
+    return NULL;
 }
 
 /**
@@ -119,4 +152,10 @@ void add_message_text_plain(text_t* text, char* string)
         strncpy(text->messages[text->num_messages], string, MAX_LENGHT_MESSAGE);
         text->num_messages++;
     }
+}
+
+void add_measure_to_message(message_t* m, uint16_t addr, int measure)
+{
+    m->m_content.measure.value = measure;
+    m->m_content.measure.addr = addr;
 }

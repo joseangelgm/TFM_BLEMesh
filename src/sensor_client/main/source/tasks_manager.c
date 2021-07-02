@@ -258,4 +258,5 @@ void queue_list_task()
     }
 
     send_message_queue(tasks_info);
+    free(tasks_info);
 }

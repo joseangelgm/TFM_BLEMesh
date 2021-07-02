@@ -10,7 +10,7 @@
 // Type of the messages, this will affect to message's parser
 typedef enum {
     PLAIN_TEXT, // simple message with info, errors
-    TASKS,
+    TASKS, // tasks list
     MEASURE,
     GET_STATUS,
     GET_CADENCE,
@@ -71,5 +71,7 @@ message_t* create_message(message_type_t type);
  * @brief add a new message to a message of type text_plain
  */
 void add_message_text_plain(text_t* text, char* string);
+
+void add_measure_to_message(message_t* m, uint16_t addr, int measure);
 
 #endif

@@ -12,6 +12,7 @@
 
 #include "ble_mesh_example_init.h"
 #include "source/board.h"
+#include "source/messages_parser.h"
 
 /*
 
@@ -284,7 +285,16 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                         fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ? "A" : "B", data_len, prop_id);
                     if (data_len != ESP_BLE_MESH_SENSOR_DATA_ZERO_LEN) {
                         ESP_LOG_BUFFER_HEX("Sensor Data", data + mpid_len, data_len + 1);
-                        ESP_LOGW(TAG, "Temperature %d", *(data + mpid_len));
+
+                        int measure = *(data + mpid_len);
+
+                        ESP_LOGW(TAG, "Temperature %d", measure);
+
+                        message_t* message = create_message(MEASURE);
+                        add_measure_to_message(message, param->params->ctx.addr, measure);
+                        send_message_queue(message);
+                        free(message);
+
                         length += mpid_len + data_len + 1;
                         data += mpid_len + data_len + 1;
                     } else {

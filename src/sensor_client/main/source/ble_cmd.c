@@ -251,7 +251,7 @@ void task_parse_json(void *params)
                             {
                                 ble_task_t aux;
                                 memcpy(&aux, &actions[i].task, sizeof(ble_task_t));
-                                xTaskCreate(&task_ble_cmd, aux.name, 2046, (void *) &aux, 5, &TaskHandle);
+                                xTaskCreate(&task_ble_cmd, aux.name, 2048, (void *) &aux, 5, &TaskHandle);
                                 new_task->task_handler = TaskHandle; // save the handler after set it when create the task. IMPORTANT!!
                                 //xTaskCreatePinnedToCore(&task_ble_cmd, aux.name, 2046, (void *) &aux, 5, &TaskHandle, 1);
 
