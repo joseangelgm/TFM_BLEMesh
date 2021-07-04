@@ -75,7 +75,8 @@ static char* measure_to_json(measure_t *m)
     if(root == NULL)
         goto error;
 
-    char addr_str[4];
+    char addr_str[5];
+    memset(addr_str, '\0', sizeof(char) * 5);
     sprintf(addr_str, "%X", m->addr);
 
     cJSON *addr = cJSON_CreateString(addr_str);
