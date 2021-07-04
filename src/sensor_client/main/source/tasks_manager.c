@@ -150,8 +150,12 @@ status_t add_new_task_if_not_exists(task_t *new_task)
 task_t* obtain_task(task_t* task)
 {
 
+    if(task_manager->num_tasks == 0)
+        return NULL;
+
     if(task_manager->first != NULL && task_manager->last != NULL)
     {
+        ESP_LOGW(TAG, "Obtain task: first and last are not null");
         if(equals(task_manager->first->task, task))
             return task_manager->first->task;
 
