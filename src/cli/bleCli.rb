@@ -146,8 +146,6 @@ end
 
 config = YAML::load_file(CONFIG_FILE)
 
-
-
 if options[:actions]
     begin
         # create mqtt object
