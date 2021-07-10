@@ -46,15 +46,20 @@ mqtt = PahoMqtt::Client.new({:host => MQTT[:ip], :port => MQTT[:port], :ssl => f
 mqtt.on_message do |message|
     response = JSON.parse(message.payload)
     puts response
-    if response.key? "type"
-        if response["type"].eql? "measure"
-            data = {
-                :values => { :value => response["value"]},
+    #if response.key? "type"
+    #    if response["type"].eql? "measure"
+    #        data = {
+    #            :values => { :value => response["value"].to_f},
+    #            :tags   => { :addr  => response["addr"]}
+    #        }
+    #        influxdb.write_point('temperature', data)
+    #    end
+    #end
+    data = {
+                :values => { :value => response["value"].to_f},
                 :tags   => { :addr  => response["addr"]}
-            }
-            influxdb.write_point('temperature', data)
-        end
-    end
+    }
+    influxdb.write_point('temperature', data)
 end
 
 ### Register a callback on suback to assert the subcription
