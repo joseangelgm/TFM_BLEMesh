@@ -347,7 +347,6 @@ static uint16_t ble_mesh_get_sensor_data(esp_ble_mesh_sensor_state_t *state, uin
     ESP_LOGW(TAG, "Temperature: %d", temp);
 
     net_buf_simple_pull_u8(&temp_sensor_data);
-    //net_buf_simple_reset(&temp_sensor_data);
     net_buf_simple_push_u8(&temp_sensor_data, temp);
 
     if (state->sensor_data.length == ESP_BLE_MESH_SENSOR_DATA_ZERO_LEN) {
