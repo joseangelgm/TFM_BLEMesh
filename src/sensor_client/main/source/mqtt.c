@@ -117,13 +117,12 @@ static void task_send_response_mqtt(void* params)
             json = message_to_json(&message);
             if(json != NULL)
             {
-                if(message.type == PLAIN_TEXT || message.type == TASKS)
-                {
-                    esp_mqtt_client_publish(client_mqtt, PUB_TOPIC_CLI, json, 0, 0, 0); // send to cli
-                }
-                else
+                if(message.type == MEASURE)
                 {
                     esp_mqtt_client_publish(client_mqtt, PUB_TOPIC_DASH, json, 0, 0, 0); // send to dashboard
+                }
+                else{
+                    esp_mqtt_client_publish(client_mqtt, PUB_TOPIC_CLI, json, 0, 0, 0); // send to cli
                 }
                 free(json);
             }

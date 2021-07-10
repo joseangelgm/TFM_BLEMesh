@@ -6,6 +6,8 @@
 
 #include "source/messages_parser.h"
 
+#define ADDR_SIZE 5
+
 static const char *TAG = "MSG_PARSER";
 
 static QueueHandle_t queue_message;
@@ -75,9 +77,21 @@ static char* measure_to_json(measure_t *m)
     if(root == NULL)
         goto error;
 
-    char addr_str[5];
-    memset(addr_str, '\0', sizeof(char) * 5);
+    char addr_str[ADDR_SIZE];
     sprintf(addr_str, "%X", m->addr);
+
+    size_t size = strlen(addr_str);
+    if(size < ADDR_SIZE - 1)
+    {
+        int shift = ADDR_SIZE - 1 - size;
+        int i = 0;
+        // shift
+        for(i = ADDR_SIZE - 2; i >= shift; i--)
+            addr_str[i] = addr_str[i - shift];
+
+        for(; i >= 0; i--)
+            addr_str[i] = '0';
+    }
 
     cJSON *addr = cJSON_CreateString(addr_str);
     if(addr == NULL)
