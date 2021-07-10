@@ -27,7 +27,19 @@
             "addr"   : "00aa",
             "opcode" : "GET_STATUS",
             "delay"  : 5,
-            "name"   : "task_get_status_2"
+            "name"   : "task_get_status"
+        }
+    ]
+}
+
+{
+    "actions" : [
+        {
+            "auto"   : true,
+            "addr"   : "00aa",
+            "opcode" : "GET_DESCRIPTOR",
+            "delay"  : 5,
+            "name"   : "task_get_status"
         }
     ]
 }
