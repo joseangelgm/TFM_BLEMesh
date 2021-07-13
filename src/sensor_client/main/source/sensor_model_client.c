@@ -100,7 +100,7 @@ static void ble_mesh_set_msg_common(esp_ble_mesh_client_common_param_t *common,
     common->model = model;
     common->ctx.net_idx = prov_key.net_idx;
     common->ctx.app_idx = prov_key.app_idx;
-    common->ctx.addr = addr, //Pasarle la direccion a la que queremos enviar
+    common->ctx.addr = addr;
     common->ctx.send_ttl = MSG_SEND_TTL;
     common->ctx.send_rel = MSG_SEND_REL;
     common->msg_timeout = MSG_TIMEOUT;
@@ -239,9 +239,11 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
             if (param->status_cb.descriptor_status.descriptor->len) {
                 ESP_LOG_BUFFER_HEX("Sensor Descriptor", param->status_cb.descriptor_status.descriptor->data,
                     param->status_cb.descriptor_status.descriptor->len);
+                ESP_LOGW(TAG, "Descriptor len %d <-> %u", param->status_cb.descriptor_status.descriptor->len, param->status_cb.descriptor_status.descriptor->len);
                 /* If running with sensor server example, sensor client can get two Sensor Property IDs.
                  * Currently we use the first Sensor Property ID for the following demonstration.
                  */
+                // static uint16_t sensor_prop_id;
                 sensor_prop_id = param->status_cb.descriptor_status.descriptor->data[1] << 8 |
                                  param->status_cb.descriptor_status.descriptor->data[0];
             }
