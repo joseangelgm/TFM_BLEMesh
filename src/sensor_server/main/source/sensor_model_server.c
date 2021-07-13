@@ -20,15 +20,12 @@ static const char* TAG = "SensorServer";
 
 /* Sensor Property ID */
 #define SENSOR_PROPERTY_ID_0        0x0056  /* Present Indoor Ambient Temperature */
-//#define SENSOR_PROPERTY_ID_1        0x005B  /* Present Outdoor Ambient Temperature */
 
 /* The characteristic of the two device properties is "Temperature 8", which is
  * used to represent a measure of temperature with a unit of 0.5 degree Celsius.
  * Minimum value: -64.0, maximum value: 63.5.
  * A value of 0xFF represents 'value is not known'.
  */
-// static int8_t indoor_temp = 40;     /* Indoor temperature is 20 Degrees Celsius */
-// static int8_t outdoor_temp = 60;    /* Outdoor temperature is 30 Degrees Celsius */
 
 #define SENSOR_POSITIVE_TOLERANCE   ESP_BLE_MESH_SENSOR_UNSPECIFIED_POS_TOLERANCE
 #define SENSOR_NEGATIVE_TOLERANCE   ESP_BLE_MESH_SENSOR_UNSPECIFIED_NEG_TOLERANCE
@@ -131,7 +128,7 @@ static void prov_complete(uint16_t net_idx, uint16_t addr, uint8_t flags, uint32
     ESP_LOGI(TAG, "net_idx 0x%03x, addr 0x%04x", net_idx, addr);
     ESP_LOGI(TAG, "flags 0x%02x, iv_index 0x%08x", flags, iv_index);
 
-    /* Initialize the indoor and outdoor temperatures for each sensor.  */
+    /* Initialize the indoor temperature */
     net_buf_simple_add_u8(&temp_sensor_data, 0);
 }
 

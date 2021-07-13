@@ -31,10 +31,10 @@ typedef struct measure_t {
     int value;
 } measure_t;
 
-typedef struct get_descriptor_t {
+typedef struct hex_buffer_t {
     uint8_t* data;
     uint16_t len;
-} get_descriptor_t;
+} hex_buffer_t;
 
 /************************************************/
 
@@ -43,7 +43,7 @@ typedef struct get_descriptor_t {
 typedef union message_content_t {
     text_t text_plain;
     measure_t measure;
-    get_descriptor_t descriptor;
+    hex_buffer_t hex_buffer;
 } message_content_t;
 
 /* General structure for every message */
@@ -76,8 +76,10 @@ message_t* create_message(message_type_t type);
 /**
  * @brief add a new message to a message of type text_plain
  */
-void add_message_text_plain(text_t* text, char* string);
+void add_message_text_plain(text_t* text, const char* string);
 
 void add_measure_to_message(message_t* m, uint16_t addr, int measure);
+
+void add_hex_buffer(message_t* m, uint8_t* data, uint16_t len);
 
 #endif

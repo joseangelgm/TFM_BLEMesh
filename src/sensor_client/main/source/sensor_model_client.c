@@ -11,7 +11,6 @@
 #include "esp_ble_mesh_sensor_model_api.h"
 
 #include "ble_mesh_example_init.h"
-#include "source/board.h"
 #include "source/messages_parser.h"
 
 /*
@@ -150,7 +149,7 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
 void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr)
 {
 
-    ESP_LOGI(TAG, "ble_mesh_send_sensor_message: 0x%04x, 0x%04x", opcode, ESP_BLE_MESH_MODEL_OP_SENSOR_GET);
+    ESP_LOGI(TAG, "ble_mesh_send_sensor_message: 0x%04x. Addr = 0x%04x", opcode, addr);
 
     esp_ble_mesh_sensor_client_get_state_t get = {0};
     esp_ble_mesh_client_common_param_t common = {0};
@@ -226,6 +225,8 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
         return;
     }
 
+    message_t* message = NULL; // Variable to store received info
+
     switch (event) {
     case ESP_BLE_MESH_SENSOR_CLIENT_GET_STATE_EVT:
         switch (param->params->opcode) {
@@ -240,6 +241,14 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                 ESP_LOG_BUFFER_HEX("Sensor Descriptor", param->status_cb.descriptor_status.descriptor->data,
                     param->status_cb.descriptor_status.descriptor->len);
                 ESP_LOGW(TAG, "Descriptor len %d <-> %u", param->status_cb.descriptor_status.descriptor->len, param->status_cb.descriptor_status.descriptor->len);
+
+                message = create_message(GET_DESCRIPTOR);
+                add_hex_buffer(message,
+                        param->status_cb.descriptor_status.descriptor->data,
+                        param->status_cb.descriptor_status.descriptor->len
+                );
+                send_message_queue(message);
+
                 /* If running with sensor server example, sensor client can get two Sensor Property IDs.
                  * Currently we use the first Sensor Property ID for the following demonstration.
                  */
@@ -292,10 +301,9 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
 
                         ESP_LOGW(TAG, "Temperature %d", measure);
 
-                        message_t* message = create_message(MEASURE);
+                        message = create_message(MEASURE);
                         add_measure_to_message(message, param->params->ctx.addr, measure);
                         send_message_queue(message);
-                        free(message);
 
                         length += mpid_len + data_len + 1;
                         data += mpid_len + data_len + 1;
@@ -358,6 +366,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
     default:
         break;
     }
+    free(message);
 }
 
 static void ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event,
@@ -400,8 +409,6 @@ esp_err_t ble_mesh_init(void)
 {
 
     esp_err_t err = ESP_OK;
-
-    board_init();
 
     err = bluetooth_init();
     if (err != ESP_OK) {

@@ -39,7 +39,7 @@
             "addr"   : "00aa",
             "opcode" : "GET_DESCRIPTOR",
             "delay"  : 5,
-            "name"   : "task_get_status"
+            "name"   : "task_get_descriptor"
         }
     ]
 }
