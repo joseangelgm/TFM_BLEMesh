@@ -8,6 +8,11 @@
 
 #define ADDR_SIZE 5
 
+/*
+I (517390) Sensor Descriptor: 56 00 00 00 00 00 00 00
+W (517390) SensorClient: Descriptor len 8 <-> 8
+*/
+
 static const char *TAG = "MSG_PARSER";
 
 static QueueHandle_t queue_message;
@@ -67,7 +72,7 @@ error:
 }
 
 /**
- * @brief obtaint a string from MEASURE type
+ * @brief obtain a string from MEASURE type
  */
 static char* measure_to_json(measure_t *m)
 {
@@ -112,6 +117,19 @@ error:
 }
 
 /**
+ * @brief obtain a string from a GET_DESCRIPTOR type
+ */
+static char* get_descriptor_to_json(get_descriptor_t* g)
+{
+    char* json = NULL;
+    cJSON *root = cJSON_CreateObject();
+
+error:
+    cJSON_Delete(root);
+    return json;
+}
+
+/**
  * @brief Return a string json that represent a message
  * Internally, transform the message based on message_type_t
  */
@@ -126,6 +144,10 @@ char* message_to_json(message_t *message)
     if(message->type == MEASURE)
         return measure_to_json(&message->m_content.measure);
 
+    if(message->type == GET_DESCRIPTOR)
+        return get_descriptor_to_json(&message->m_content.descriptor);
+
+
     return NULL;
 }
 
@@ -134,26 +156,25 @@ char* message_to_json(message_t *message)
  */
 message_t* create_message(message_type_t type)
 {
-    message_t* message = NULL;
+    message_t* message = (message_t*) malloc(sizeof(message_t));
 
     if(type == PLAIN_TEXT || type == TASKS)
     {
-        message = (message_t*) malloc(sizeof(message_t));
         message->m_content.text_plain.num_messages = 0;
-        message->type = type;
-        return message;
     }
-
-    if(type == MEASURE)
+    else if(type == MEASURE)
     {
-        message = (message_t*) malloc(sizeof(message_t));
         message->m_content.measure.value = 0;
         message->m_content.measure.addr = 0x0000;
-        message->type = type;
-        return message;
+    }
+    else if(type == GET_DESCRIPTOR)
+    {
+        message->m_content.descriptor.data = NULL;
+        message->m_content.descriptor.len = 0;
     }
 
-    return NULL;
+    message->type = type;
+    return message;
 }
 
 /**

@@ -31,6 +31,11 @@ typedef struct measure_t {
     int value;
 } measure_t;
 
+typedef struct get_descriptor_t {
+    uint8_t* data;
+    uint16_t len;
+} get_descriptor_t;
+
 /************************************************/
 
 
@@ -38,6 +43,7 @@ typedef struct measure_t {
 typedef union message_content_t {
     text_t text_plain;
     measure_t measure;
+    get_descriptor_t descriptor;
 } message_content_t;
 
 /* General structure for every message */
