@@ -564,7 +564,8 @@ static void ble_mesh_sensor_server_cb(esp_ble_mesh_sensor_server_cb_event_t even
     }
 }
 
-esp_err_t ble_mesh_init(void){
+esp_err_t ble_mesh_init(void)
+{
 
     esp_err_t err = ESP_OK;
 
