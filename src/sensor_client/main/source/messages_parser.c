@@ -14,25 +14,27 @@ static QueueHandle_t queue_message;
 static char hex[] = "0123456789ABCDEF";
 
 /**
- * @brief Initialize the queue. It will be used for:
- *  - Get the responses from ble
- *  - Get errors when create or delete tasks
-*/
+ * @brief Initialize the queue. This queue is used in mqtt.c.
+ * When mqtt.c receive a message_t struct, call message_parser.c
+ * to obtain a json.
+ */
 void initialize_messages_parser_queue(QueueHandle_t queue)
 {
     queue_message = queue;
 }
 
 /**
- * @brief queue a message_t. It will be process in mqtt module.
+ * @brief queue a message_t
  */
 void send_message_queue(message_t *m)
 {
     xQueueSendToBack(queue_message, m, 0);
 }
 
+/****** FUNCTIONS TO PARSE message_type_t ******/
+
 /**
- * @brief obtain a string from a TEXT_PLAIN or TASKS message type
+ * @brief obtain a json from a TEXT_PLAIN or TASKS message type
  */
 static char* text_plain_to_json(text_t *t, char* key)
 {
@@ -68,7 +70,7 @@ error:
 }
 
 /**
- * @brief obtain a string from MEASURE type
+ * @brief obtain a json from MEASURE type
  */
 static char* measure_to_json(measure_t *m)
 {
@@ -112,6 +114,10 @@ error:
     return json;
 }
 
+/**
+ * @brief Get char representation from a uint8_t.
+ * value is decode into ms and ls.
+ */
 static void uint8_to_char(uint8_t value, char* ms, char* ls)
 {
     uint8_t ms_value = value >> 4;
@@ -120,6 +126,10 @@ static void uint8_to_char(uint8_t value, char* ms, char* ls)
     *ls = hex[(int)(value & 0xF)];
 }
 
+/**
+ * @brief Get char* representation from a uint8_t*.
+ * Use uint8_to_char function
+ */
 static char* uint8_array_to_string(uint8_t *val, uint16_t len)
 {
     size_t size = (sizeof(char) * len * 2);
@@ -135,7 +145,7 @@ static char* uint8_array_to_string(uint8_t *val, uint16_t len)
 }
 
 /**
- * @brief obtain a string from a GET_DESCRIPTOR type
+ * @brief obtain a json from a HEX_BUFFER type
  */
 static char* get_hex_buffer_to_json(hex_buffer_t *hex, const char* key)
 {
@@ -159,29 +169,49 @@ error:
     return json;
 }
 
+/***********************************************/
+
+/****** HELPER FUNCTIONS TO SET STRUCTURES *****/
+
 /**
- * @brief Return a string json that represent a message
- * Internally, transform the message based on message_type_t
+ * @brief Helper function to add a new message
  */
-char* message_to_json(message_t *message)
+void add_message_text_plain(text_t* text, const char* string)
 {
-    if(message->type == PLAIN_TEXT)
-        return text_plain_to_json(&message->m_content.text_plain, "messages");
-
-    if(message->type == TASKS)
-        return text_plain_to_json(&message->m_content.text_plain, "tasks");
-
-    if(message->type == MEASURE)
-        return measure_to_json(&message->m_content.measure);
-
-    if(message->type == HEX_BUFFER)
-        return get_hex_buffer_to_json(&message->m_content.hex_buffer, "descriptor");
-
-    return NULL;
+    if(text->num_messages < MAX_NUM_MESSAGES)
+    {
+        strncpy(text->messages[text->num_messages], string, MAX_LENGHT_MESSAGE);
+        text->num_messages++;
+    }
 }
 
 /**
- * @brief Return message_t prepared for the type given
+ * @brief Helper function to a measure
+ */
+void add_measure_to_message(message_t* m, uint16_t addr, int measure)
+{
+    m->m_content.measure.value = measure;
+    m->m_content.measure.addr = addr;
+}
+
+/**
+ * @brief Helper function to set hex buffer
+ */
+void add_hex_buffer(message_t* m, uint8_t* data, uint16_t len)
+{
+    m->m_content.hex_buffer.data = malloc(sizeof(uint8_t) * len);
+    m->m_content.hex_buffer.len = len;
+
+    for(uint16_t i = 0; i < len; i++)
+    {
+        m->m_content.hex_buffer.data[i] = data[i];
+    }
+}
+
+/**********************************************/
+
+/**
+ * @brief Return message_t prepared based on type given
  */
 message_t* create_message(message_type_t type)
 {
@@ -207,30 +237,34 @@ message_t* create_message(message_type_t type)
 }
 
 /**
- * add a message to a text_plain message type
+ * @brief Return a json that represent a message_t
  */
-void add_message_text_plain(text_t* text, const char* string)
+char* message_to_json(message_t *message)
 {
-    if(text->num_messages < MAX_NUM_MESSAGES)
-    {
-        strncpy(text->messages[text->num_messages], string, MAX_LENGHT_MESSAGE);
-        text->num_messages++;
-    }
+    if(message->type == PLAIN_TEXT)
+        return text_plain_to_json(&message->m_content.text_plain, "messages");
+
+    if(message->type == TASKS)
+        return text_plain_to_json(&message->m_content.text_plain, "tasks");
+
+    if(message->type == MEASURE)
+        return measure_to_json(&message->m_content.measure);
+
+    if(message->type == HEX_BUFFER)
+        return get_hex_buffer_to_json(&message->m_content.hex_buffer, "descriptor");
+
+    return NULL;
 }
 
-void add_measure_to_message(message_t* m, uint16_t addr, int measure)
+/**
+ * @brief Free message_t struct
+ */
+void free_message(message_t *message)
 {
-    m->m_content.measure.value = measure;
-    m->m_content.measure.addr = addr;
-}
-
-void add_hex_buffer(message_t* m, uint8_t* data, uint16_t len)
-{
-    m->m_content.hex_buffer.data = malloc(sizeof(uint8_t) * len);
-    m->m_content.hex_buffer.len = len;
-
-    for(uint16_t i = 0; i < len; i++)
+    if(message->type == HEX_BUFFER)
     {
-        m->m_content.hex_buffer.data[i] = data[i];
+        free(message->m_content.hex_buffer.data);
     }
+
+    free(message);
 }

@@ -432,7 +432,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
     default:
         break;
     }
-    free(message);
+    free_message(message);
 }
 
 static void ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event,

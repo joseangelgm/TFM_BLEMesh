@@ -39,7 +39,6 @@ typedef struct hex_buffer_t {
 
 /************************************************/
 
-
 /* A message will only have one of the following fields */
 typedef union message_content_t {
     text_t text_plain;
@@ -64,6 +63,21 @@ void initialize_messages_parser_queue(QueueHandle_t queue);
 void send_message_queue(message_t *message);
 
 /**
+ * @brief add a new message to a message of type text_plain
+ */
+void add_message_text_plain(text_t* text, const char* string);
+
+/**
+ * @brief Helper function to a measure
+ */
+void add_measure_to_message(message_t* m, uint16_t addr, int measure);
+
+/**
+ * @brief Helper function to set hex buffer
+ */
+void add_hex_buffer(message_t* m, uint8_t* data, uint16_t len);
+
+/**
  * @brief Return a string json that represent a message
  * Internally, transform the message based on message_type_t
  */
@@ -75,12 +89,8 @@ char* message_to_json(message_t *message);
 message_t* create_message(message_type_t type);
 
 /**
- * @brief add a new message to a message of type text_plain
+ * @brief Free message_t struct
  */
-void add_message_text_plain(text_t* text, const char* string);
-
-void add_measure_to_message(message_t* m, uint16_t addr, int measure);
-
-void add_hex_buffer(message_t* m, uint8_t* data, uint16_t len);
+void free_message(message_t *message);
 
 #endif
