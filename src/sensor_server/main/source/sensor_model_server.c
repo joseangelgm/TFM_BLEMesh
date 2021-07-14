@@ -29,7 +29,7 @@ static const char* TAG = "SensorServer";
 
 #define SENSOR_POSITIVE_TOLERANCE   ESP_BLE_MESH_SENSOR_UNSPECIFIED_POS_TOLERANCE
 #define SENSOR_NEGATIVE_TOLERANCE   ESP_BLE_MESH_SENSOR_UNSPECIFIED_NEG_TOLERANCE
-#define SENSOR_SAMPLE_FUNCTION      ESP_BLE_MESH_SAMPLE_FUNC_UNSPECIFIED
+#define SENSOR_SAMPLE_FUNCTION      ESP_BLE_MESH_SAMPLE_FUNC_ARITHMETIC_MEAN
 #define SENSOR_MEASURE_PERIOD       ESP_BLE_MESH_SENSOR_NOT_APPL_MEASURE_PERIOD
 #define SENSOR_UPDATE_INTERVAL      ESP_BLE_MESH_SENSOR_NOT_APPL_UPDATE_INTERVAL
 
@@ -132,7 +132,10 @@ static void prov_complete(uint16_t net_idx, uint16_t addr, uint8_t flags, uint32
     net_buf_simple_add_u8(&temp_sensor_data, 0);
 }
 
-static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event, esp_ble_mesh_prov_cb_param_t *param){
+static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event, esp_ble_mesh_prov_cb_param_t *param)
+{
+    ESP_LOGI(TAG, "ble_mesh_provisioning_cb: event = %d", event);
+
     switch (event) {
     case ESP_BLE_MESH_PROV_REGISTER_COMP_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_PROV_REGISTER_COMP_EVT, err_code %d", param->prov_register_comp.err_code);
@@ -166,6 +169,7 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event, esp_ble
 
 static void ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event, esp_ble_mesh_cfg_server_cb_param_t *param){
 
+    ESP_LOGI(TAG, "ble_mesh_config_server_cb: event = %d", event);
     if (event == ESP_BLE_MESH_CFG_SERVER_STATE_CHANGE_EVT) {
         switch (param->ctx.recv_op) {
         case ESP_BLE_MESH_MODEL_OP_APP_KEY_ADD:
@@ -579,8 +583,8 @@ esp_err_t ble_mesh_init(void){
     //ESP_BLE_HOST_STATUS_CHECK(ESP_BLE_HOST_STATUS_ENABLED); // Parece que es esto!! Se llama en esp_ble_mesh_init
 
     // Codigo de testing para saber como esta el bluetooth
-    ESP_LOGW(TAG, "STATUS: Enabled %d, Initialize %d, Unitialize %d", ESP_BLUEDROID_STATUS_ENABLED,ESP_BLUEDROID_STATUS_INITIALIZED, ESP_BLUEDROID_STATUS_UNINITIALIZED);
-    ESP_LOGW(TAG, "STATUS %d", esp_bluedroid_get_status());
+    //ESP_LOGW(TAG, "STATUS: Enabled %d, Initialize %d, Unitialize %d", ESP_BLUEDROID_STATUS_ENABLED,ESP_BLUEDROID_STATUS_INITIALIZED, ESP_BLUEDROID_STATUS_UNINITIALIZED);
+    //ESP_LOGW(TAG, "STATUS %d", esp_bluedroid_get_status());
 
     err = esp_ble_mesh_init(&provision, &composition);
     if (err != ESP_OK) {
