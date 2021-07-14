@@ -8,11 +8,6 @@
 
 #define ADDR_SIZE 5
 
-/*
-I (517390) Sensor Descriptor: 56 00 00 00 00 00 00 00
-W (517390) SensorClient: Descriptor len 8 <-> 8
-*/
-
 static const char *TAG = "MSG_PARSER";
 
 static QueueHandle_t queue_message;
@@ -179,7 +174,7 @@ char* message_to_json(message_t *message)
     if(message->type == MEASURE)
         return measure_to_json(&message->m_content.measure);
 
-    if(message->type == GET_DESCRIPTOR)
+    if(message->type == HEX_BUFFER)
         return get_hex_buffer_to_json(&message->m_content.hex_buffer, "descriptor");
 
     return NULL;
@@ -201,7 +196,7 @@ message_t* create_message(message_type_t type)
         message->m_content.measure.value = 0;
         message->m_content.measure.addr = 0x0000;
     }
-    else if(type == GET_DESCRIPTOR)
+    else if(type == HEX_BUFFER)
     {
         message->m_content.hex_buffer.data = NULL;
         message->m_content.hex_buffer.len = 0;

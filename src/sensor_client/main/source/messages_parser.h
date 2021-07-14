@@ -12,11 +12,12 @@ typedef enum {
     PLAIN_TEXT, // simple message with info, errors
     TASKS, // tasks list
     MEASURE,
-    GET_STATUS,
-    GET_CADENCE,
-    GET_DESCRIPTOR,
-    GET_SETTINGS,
-    GET_SERIES
+    HEX_BUFFER
+//    GET_STATUS,
+//    GET_CADENCE,
+//    GET_DESCRIPTOR,
+//    GET_SETTINGS,
+//    GET_SERIES
 } message_type_t;
 
 /*********** Types of messages ******************/
