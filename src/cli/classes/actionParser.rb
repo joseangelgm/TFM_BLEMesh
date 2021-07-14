@@ -15,7 +15,7 @@ class ActionParser
         'GET_STATUS',
         'GET_CADENCE',
         'GET_DESCRIPTOR',
-        'GET_SETTING',
+        'GET_SETTINGS',
         'GET_SERIES'
     ]
     private_constant :OPCODES
