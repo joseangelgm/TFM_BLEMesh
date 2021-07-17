@@ -42,11 +42,19 @@ static void task_ble_cmd(void *params)
     ble_task_t *ble_task = (ble_task_t *) params;
     ESP_LOGW(TAG, "[%s] %d, %d, %d, %X. Running.", ble_task->name, (int)ble_task->auto_task, ble_task->opcode, ble_task->delay, ble_task->addr);
 
-    for(;;)
+    if(ble_task->auto_task)
+    {
+        for(;;)
+        {
+            ble_mesh_send_sensor_message(ble_task->opcode, ble_task->addr);
+            vTaskDelay(ble_task->delay * 1000 / portTICK_PERIOD_MS);
+        }
+    }
+    else
     {
         ble_mesh_send_sensor_message(ble_task->opcode, ble_task->addr);
-        vTaskDelay(ble_task->delay * 1000 / portTICK_PERIOD_MS);
     }
+
     vTaskDelete(NULL);
 }
 
@@ -240,33 +248,46 @@ void task_parse_json(void *params)
                                  actions[i].task.opcode, actions[i].task.delay,
                                  actions[i].task.addr);
 
-                            // Check if the tasks exists
-                            TaskHandle_t TaskHandle = NULL;
-                            task_t *new_task = (task_t *)malloc(sizeof(task_t));
-                            new_task->name = actions[i].task.name;
-                            //new_task->task_handler = TaskHandle;
-
-                            status_t status = add_new_task_if_not_exists(new_task);
-                            if(status == CREATED)
+                            if(actions[i].task.auto_task)
                             {
-                                ble_task_t aux;
-                                memcpy(&aux, &actions[i].task, sizeof(ble_task_t));
-                                xTaskCreate(&task_ble_cmd, aux.name, 2048, (void *) &aux, 5, &TaskHandle);
-                                new_task->task_handler = TaskHandle; // save the handler after set it when create the task. IMPORTANT!!
-                                //xTaskCreatePinnedToCore(&task_ble_cmd, aux.name, 2046, (void *) &aux, 5, &TaskHandle, 1);
+                                ESP_LOGI(TAG, "Task %s is auto", actions[i].task.name);
 
-                                memset(buff,'\0',MAX_LENGHT_MESSAGE);
-                                sprintf(buff, "Task %s created", actions[i].task.name);
-                                add_message_text_plain(&message->m_content.text_plain, buff);
+                                // Check if the tasks exists
+                                TaskHandle_t TaskHandle = NULL;
+                                task_t *new_task = (task_t *)malloc(sizeof(task_t));
+                                new_task->name = actions[i].task.name;
+                                //new_task->task_handler = TaskHandle;
+
+                                status_t status = add_new_task_if_not_exists(new_task);
+                                if(status == CREATED)
+                                {
+                                    ble_task_t aux;
+                                    memcpy(&aux, &actions[i].task, sizeof(ble_task_t));
+                                    xTaskCreate(&task_ble_cmd, aux.name, 2048, (void *) &aux, 5, &TaskHandle);
+                                    new_task->task_handler = TaskHandle; // save the handler after set it when create the task. IMPORTANT!!
+                                    //xTaskCreatePinnedToCore(&task_ble_cmd, aux.name, 2046, (void *) &aux, 5, &TaskHandle, 1);
+
+                                    memset(buff,'\0',MAX_LENGHT_MESSAGE);
+                                    sprintf(buff, "Task %s created", actions[i].task.name);
+                                    add_message_text_plain(&message->m_content.text_plain, buff);
+                                }
+                                else
+                                {
+                                    // Send for mqtt message -> The task "name" exists!
+                                    ESP_LOGE(TAG, "Task - %s - exists!", actions[i].task.name);
+
+                                    memset(buff,'\0',MAX_LENGHT_MESSAGE);
+                                    sprintf(buff, "Task %s exists", actions[i].task.name);
+                                    add_message_text_plain(&message->m_content.text_plain, buff);
+                                }
                             }
                             else
                             {
-                                // Send for mqtt message -> The task "name" exists!
-                                ESP_LOGE(TAG, "Task - %s - exists!", actions[i].task.name);
+                                ESP_LOGI(TAG, "Task %s is not auto", actions[i].task.name);
 
-                                memset(buff,'\0',MAX_LENGHT_MESSAGE);
-                                sprintf(buff, "Task %s exists", actions[i].task.name);
-                                add_message_text_plain(&message->m_content.text_plain, buff);
+                                ble_task_t aux;
+                                memcpy(&aux, &actions[i].task, sizeof(ble_task_t));
+                                xTaskCreate(&task_ble_cmd, aux.name, 2048, (void *) &aux, 5, NULL);
                             }
                             //free(new_task);
                         }
@@ -286,7 +307,6 @@ void task_parse_json(void *params)
 
             free(actions);
             free(json_string);
-            free(message);
         }
         else
         {
