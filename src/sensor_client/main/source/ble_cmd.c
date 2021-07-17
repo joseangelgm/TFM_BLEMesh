@@ -68,20 +68,20 @@ static char* sanitize_string(const char* string)
  */
 static void task_ble_cmd(void *params)
 {
-    ble_task_t *ble_task = (ble_task_t *) params;
-    ESP_LOGI(TAG, "[%s] auto = %d, opcode = %d, delay = %d, addr = %X", ble_task->name, (int)ble_task->auto_task, ble_task->opcode, ble_task->delay, ble_task->addr);
+    ble_task_t ble_task = (*(ble_task_t *) params);
+    ESP_LOGI(TAG, "[%s] auto = %d, opcode = 0x%02X, delay = %d, addr = 0x%02X", ble_task.name, (int)ble_task.auto_task, ble_task.opcode, ble_task.delay, ble_task.addr);
 
-    if(ble_task->auto_task)
+    if(ble_task.auto_task)
     {
         for(;;)
         {
-            ble_mesh_send_sensor_message(ble_task->opcode, ble_task->addr);
-            vTaskDelay(ble_task->delay * 1000 / portTICK_PERIOD_MS);
+            ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr);
+            vTaskDelay(ble_task.delay * 1000 / portTICK_PERIOD_MS);
         }
     }
     else
     {
-        ble_mesh_send_sensor_message(ble_task->opcode, ble_task->addr);
+        ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr);
     }
 
     vTaskDelete(NULL);
@@ -238,10 +238,11 @@ static void create_task(ble_task_t *ble_task, message_t *messages)
         if(status == CREATED)
         {
             ble_task_t aux;
-            memcpy(&aux, &ble_task, sizeof(ble_task_t));
+            memcpy(&aux, ble_task, sizeof(ble_task_t));
             xTaskCreate(&task_ble_cmd, aux.name, 2048, (void *) &aux, 5, &TaskHandle);
             new_task->task_handler = TaskHandle; // save the handler after set it when create the task. IMPORTANT!!
 
+            ESP_LOGI(TAG, "Task %s created", ble_task->name);
             add_message_text_plain(messages, "Task %s created", ble_task->name);
         }
         else
@@ -256,7 +257,7 @@ static void create_task(ble_task_t *ble_task, message_t *messages)
         ESP_LOGI(TAG, "Task %s is not auto", ble_task->name);
 
         ble_task_t aux;
-        memcpy(&aux, &ble_task, sizeof(ble_task_t));
+        memcpy(&aux, ble_task, sizeof(ble_task_t));
         xTaskCreate(&task_ble_cmd, aux.name, 2048, (void *) &aux, 5, NULL);
         add_message_text_plain(messages, "Task %s launched", ble_task->name);
     }

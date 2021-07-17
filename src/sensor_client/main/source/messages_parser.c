@@ -313,13 +313,11 @@ void add_measure_to_message(message_t* m, uint16_t addr, int measure)
 void add_hex_buffer(message_t* m, uint8_t* data, uint16_t len)
 {
     m->m_content.hex_buffer.data = malloc(sizeof(uint8_t) * len);
-    ESP_LOGW(TAG, "Dir hex_data %p", m->m_content.hex_buffer.data);
     m->m_content.hex_buffer.len = len;
 
     for(uint16_t i = 0; i < len; i++)
     {
         m->m_content.hex_buffer.data[i] = data[i];
-        ESP_LOGI(TAG, "Copying %02x -> %02x", data[i], m->m_content.hex_buffer.data[i]);
     }
 }
 

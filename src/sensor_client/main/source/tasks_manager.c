@@ -242,22 +242,17 @@ status_t remove_task(task_t* remove_task)
 void queue_list_task()
 {
     message_t* tasks_info = create_message(TASKS);
-    char buff[MAX_LENGHT_MESSAGE];
 
     if(task_manager->num_tasks > 0)
     {
         for(node_t *temp = task_manager->first; temp != NULL; temp = temp->next)
         {
-            memset(buff,'\0',MAX_LENGHT_MESSAGE);
-            sprintf(buff, "Task: Name -> %s", temp->task->name);
-            add_message_text_plain(&tasks_info->m_content.text_plain, buff);
+            add_message_text_plain(tasks_info, "Task: Name -> %s", temp->task->name);
         }
     }
     else
     {
-        memset(buff,'\0',MAX_LENGHT_MESSAGE);
-        sprintf(buff, "No tasks!!");
-        add_message_text_plain(&tasks_info->m_content.text_plain, buff);
+        add_message_text_plain(tasks_info, "There are not tasks running...");
     }
 
     send_message_queue(tasks_info);
