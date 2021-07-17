@@ -105,19 +105,19 @@ static void task_send_response_mqtt(void* params)
 {
     QueueHandle_t queue = (*(QueueHandle_t *) params);
     BaseType_t xStatus;
-    message_t message; // all data is copied to queue area. Free after send it.
+    message_t *message = NULL; // all data is copied to queue area
     char* json = NULL;
 
     for(;;)
     {
-        xStatus = xQueueReceive(queue, &message, portMAX_DELAY);
+        xStatus = xQueueReceive(queue, &(message), portMAX_DELAY);
         if(xStatus == pdTRUE)
         {
-            ESP_LOGI(TAG, "Message to mqtt of type %d", message.type);
-            json = message_to_json(&message);
+            ESP_LOGI(TAG, "Message to mqtt of type %d", message->type);
+            json = message_to_json(message);
             if(json != NULL)
             {
-                if(message.type == MEASURE)
+                if(message->type == GET_STATUS)
                 {
                     esp_mqtt_client_publish(client_mqtt, PUB_TOPIC_DASH, json, 0, 0, 0); // send to dashboard
                 }
@@ -130,6 +130,7 @@ static void task_send_response_mqtt(void* params)
             {
                 ESP_LOGE(TAG, "Json is null!");
             }
+            free_message(message);
         }
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
@@ -155,7 +156,7 @@ esp_err_t init_mqtt()
     };
 
     queue_receive  = xQueueCreate(4, sizeof(mqtt_json));
-    QueueHandle_t queue_messages = xQueueCreate(25, sizeof(message_t));
+    QueueHandle_t queue_messages = xQueueCreate(25, sizeof(message_t *));
 
     // Initialize queue message parser
     initialize_messages_parser_queue(queue_messages);
