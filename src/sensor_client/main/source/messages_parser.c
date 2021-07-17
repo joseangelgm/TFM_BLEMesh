@@ -3,6 +3,7 @@
 #include "cJSON.h"
 #include "esp_log.h"
 #include <string.h>
+#include <stdint.h>
 
 #include "source/messages_parser.h"
 
@@ -28,7 +29,7 @@ void initialize_messages_parser_queue(QueueHandle_t queue)
  */
 void send_message_queue(message_t *m)
 {
-    xQueueSendToBack(queue_message, m, 0);
+    xQueueSendToBack(queue_message, (void *) &m, 0);
 }
 
 /****** FUNCTIONS TO PARSE message_type_t ******/
@@ -72,7 +73,7 @@ error:
 /**
  * @brief obtain a json from MEASURE type
  */
-static char* measure_to_json(measure_t *m)
+static char* get_status_to_json(measure_t *m)
 {
 
     char* json = NULL;
@@ -81,6 +82,7 @@ static char* measure_to_json(measure_t *m)
         goto error;
 
     char addr_str[ADDR_SIZE];
+    memset(addr_str, '\0', ADDR_SIZE);
     sprintf(addr_str, "%X", m->addr);
 
     size_t size = strlen(addr_str);
@@ -120,6 +122,7 @@ error:
  */
 static void uint8_to_char(uint8_t value, char* ms, char* ls)
 {
+
     uint8_t ms_value = value >> 4;
 
     *ms = hex[(int)ms_value];
@@ -132,9 +135,9 @@ static void uint8_to_char(uint8_t value, char* ms, char* ls)
  */
 static char* uint8_array_to_string(uint8_t *val, uint16_t len)
 {
-    size_t size = (sizeof(char) * len * 2);
-    char* buff = (char *)malloc(size + 1); // '\0'
-    memset(buff, '\0', size + 1);
+    size_t size = ((sizeof(char) * len * 2) + 1);
+    char* buff = (char *)malloc(size); // '\0'
+    memset(buff, '\0', size);
 
     for (size_t i = 0; i < len ; i++)
 	{
@@ -161,6 +164,116 @@ static char* get_hex_buffer_to_json(hex_buffer_t *hex, const char* key)
         goto error;
 
     cJSON_AddItemToObject(root, key, data);
+
+    json = cJSON_Print(root);
+
+error:
+    cJSON_Delete(root);
+    return json;
+}
+
+/**
+ * @brief obtain a json from a GET_DESCRIPTOR type
+ */
+static char* get_descriptor_to_json(hex_buffer_t *hex)
+{
+    /*
+    struct sensor_descriptor {
+        uint16_t sensor_prop_id;
+        uint32_t pos_tolerance:12,
+                 neg_tolerance:12,
+                 sample_func:8;
+        uint8_t  measure_period;
+        uint8_t  update_interval;
+    }__attribute__((packed));
+    */
+
+    char* json = NULL;
+    cJSON *root = cJSON_CreateObject();
+    if(root == NULL)
+        goto error;
+
+
+    // sensor_prop_id
+    uint8_t sensor_prop_id[] = {
+        hex->data[0],
+        hex->data[1],
+    };
+
+    char *sensor_prop_id_str = uint8_array_to_string(sensor_prop_id, 2);
+
+    cJSON *sensor_prop_id_json = cJSON_CreateString(sensor_prop_id_str); free(sensor_prop_id_str);
+    if(sensor_prop_id_json == NULL)
+        goto error;
+
+    cJSON_AddItemToObject(root, "sensor_prop_id", sensor_prop_id_json);
+
+    // positive tolerance
+    uint8_t pos_tolerance[] = {
+        hex->data[2],
+        hex->data[3] >> 4,
+    };
+
+    char *pos_tolerance_str = uint8_array_to_string(pos_tolerance, 2);
+
+    cJSON *pos_tolerance_json = cJSON_CreateString(pos_tolerance_str); free(pos_tolerance_str);
+    if(pos_tolerance_json == NULL)
+        goto error;
+
+    cJSON_AddItemToObject(root, "pos_tolerance", pos_tolerance_json);
+
+    // negative tolerance
+    uint8_t neg_tolerance[] = {
+        hex->data[3] & 0xF,
+        hex->data[4],
+    };
+
+    char *neg_tolerance_str = uint8_array_to_string(neg_tolerance, 2);
+
+    cJSON *neg_tolerance_json = cJSON_CreateString(neg_tolerance_str); free(neg_tolerance_str);
+    if(neg_tolerance_json == NULL)
+        goto error;
+
+    cJSON_AddItemToObject(root, "neg_tolerance", neg_tolerance_json);
+
+    // sample_func
+    uint8_t sample_func[] = {
+        hex->data[5]
+    };
+
+    char *sample_func_str = uint8_array_to_string(sample_func, 1);
+
+    cJSON *sample_func_json = cJSON_CreateString(sample_func_str); free(sample_func_str);
+    if(sample_func_json == NULL)
+        goto error;
+
+    cJSON_AddItemToObject(root, "sample_function", sample_func_json);
+
+    // measure_period
+    uint8_t measure_period[] = {
+        hex->data[6]
+    };
+
+    char *measure_period_str = uint8_array_to_string(measure_period, 1);
+
+    cJSON *measure_period_json = cJSON_CreateString(measure_period_str); free(measure_period_str);
+    if(measure_period_json == NULL)
+        goto error;
+
+    cJSON_AddItemToObject(root, "measure_period", measure_period_json);
+
+    // update_interval
+    uint8_t update_interval[] = {
+        hex->data[7]
+    };
+
+    char *update_interval_str = uint8_array_to_string(update_interval, 1);
+
+    cJSON *update_interval_json = cJSON_CreateString(update_interval_str); free(update_interval_str);
+    if(update_interval_json == NULL)
+        goto error;
+
+    cJSON_AddItemToObject(root, "update_interval", update_interval_json);
 
     json = cJSON_Print(root);
 
@@ -200,11 +313,13 @@ void add_measure_to_message(message_t* m, uint16_t addr, int measure)
 void add_hex_buffer(message_t* m, uint8_t* data, uint16_t len)
 {
     m->m_content.hex_buffer.data = malloc(sizeof(uint8_t) * len);
+    ESP_LOGW(TAG, "Dir hex_data %p", m->m_content.hex_buffer.data);
     m->m_content.hex_buffer.len = len;
 
     for(uint16_t i = 0; i < len; i++)
     {
         m->m_content.hex_buffer.data[i] = data[i];
+        ESP_LOGI(TAG, "Copying %02x -> %02x", data[i], m->m_content.hex_buffer.data[i]);
     }
 }
 
@@ -219,15 +334,18 @@ message_t* create_message(message_type_t type)
 
     if(type == PLAIN_TEXT || type == TASKS)
     {
+        ESP_LOGI(TAG, "Creating PLAIN_TEXT, TASKS");
         message->m_content.text_plain.num_messages = 0;
     }
-    else if(type == MEASURE)
+    else if(type == GET_STATUS)
     {
+        ESP_LOGI(TAG, "Creating GET_STATUS");
         message->m_content.measure.value = 0;
         message->m_content.measure.addr = 0x0000;
     }
-    else if(type == HEX_BUFFER)
+    else if(type == HEX_BUFFER || type == GET_DESCRIPTOR)
     {
+        ESP_LOGI(TAG, "Creating HEX_BUFFER, GET_DESCRIPTOR");
         message->m_content.hex_buffer.data = NULL;
         message->m_content.hex_buffer.len = 0;
     }
@@ -247,11 +365,14 @@ char* message_to_json(message_t *message)
     if(message->type == TASKS)
         return text_plain_to_json(&message->m_content.text_plain, "tasks");
 
-    if(message->type == MEASURE)
-        return measure_to_json(&message->m_content.measure);
+    if(message->type == GET_STATUS)
+        return get_status_to_json(&message->m_content.measure);
+
+    if(message->type == GET_DESCRIPTOR)
+        return get_descriptor_to_json(&message->m_content.hex_buffer);
 
     if(message->type == HEX_BUFFER)
-        return get_hex_buffer_to_json(&message->m_content.hex_buffer, "descriptor");
+        return get_hex_buffer_to_json(&message->m_content.hex_buffer, "hex buffer");
 
     return NULL;
 }
@@ -261,10 +382,12 @@ char* message_to_json(message_t *message)
  */
 void free_message(message_t *message)
 {
-    if(message->type == HEX_BUFFER)
+    if(message != NULL)
     {
-        free(message->m_content.hex_buffer.data);
+        if(message->type == HEX_BUFFER || message->type == GET_DESCRIPTOR)
+        {
+            free(message->m_content.hex_buffer.data);
+        }
+        free(message);
     }
-
-    free(message);
 }

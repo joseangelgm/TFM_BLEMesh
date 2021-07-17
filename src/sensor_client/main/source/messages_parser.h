@@ -4,6 +4,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 
+#include <stdint.h>
+
 #define MAX_NUM_MESSAGES 20
 #define MAX_LENGHT_MESSAGE 81// +1 -> \0
 
@@ -11,13 +13,12 @@
 typedef enum {
     PLAIN_TEXT, // simple message with info, errors
     TASKS, // tasks list
-    MEASURE,
-    HEX_BUFFER
-//    GET_STATUS,
+    GET_STATUS,
 //    GET_CADENCE,
-//    GET_DESCRIPTOR,
+    GET_DESCRIPTOR,
 //    GET_SETTINGS,
 //    GET_SERIES
+    HEX_BUFFER
 } message_type_t;
 
 /*********** Types of messages ******************/
