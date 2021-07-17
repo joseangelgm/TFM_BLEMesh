@@ -6,13 +6,13 @@
 #include <stdint.h>
 
 #include "source/messages_parser.h"
+#include "source/data_format.h"
 
 #define ADDR_SIZE 5
 
 static const char *TAG = "MSG_PARSER";
 
 static QueueHandle_t queue_message;
-static char hex[] = "0123456789ABCDEF";
 
 /**
  * @brief Initialize the queue. This queue is used in mqtt.c.
@@ -114,37 +114,6 @@ static char* get_status_to_json(measure_t *m)
 error:
     cJSON_Delete(root);
     return json;
-}
-
-/**
- * @brief Get char representation from a uint8_t.
- * value is decode into ms and ls.
- */
-static void uint8_to_char(uint8_t value, char* ms, char* ls)
-{
-
-    uint8_t ms_value = value >> 4;
-
-    *ms = hex[(int)ms_value];
-    *ls = hex[(int)(value & 0xF)];
-}
-
-/**
- * @brief Get char* representation from a uint8_t*.
- * Use uint8_to_char function
- */
-static char* uint8_array_to_string(uint8_t *val, uint16_t len)
-{
-    size_t size = ((sizeof(char) * len * 2) + 1);
-    char* buff = (char *)malloc(size); // '\0'
-    memset(buff, '\0', size);
-
-    for (size_t i = 0; i < len ; i++)
-	{
-        uint8_to_char(val[i], &buff[i * 2], &buff[(i * 2) + 1]);
-	}
-
-    return buff;
 }
 
 /**

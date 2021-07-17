@@ -12,11 +12,16 @@
 #include "source/ble_cmd.h"
 #include "source/tasks_manager.h"
 #include "source/messages_parser.h"
+#include "source/data_format.h"
 
 static const char *TAG = "BLE_CMD";
 
+// function in sensor_model_client.c to send a message of type 'opcode' to a addr
 extern void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr);
 
+/**
+ * 
+ */
 static uint32_t get_opcode(char *opcode)
 {
     if(strcmp(opcode, "GET_STATUS") == 0){
@@ -65,39 +70,6 @@ static char* sanitize_string(char* string)
     memset(new_string, '\0', size * sizeof(char) + 1);
     strncpy(new_string, string, size);
     return new_string;
-}
-
-static uint8_t char_to_uint8_t(char c)
-{
-    // A = 65 -> A = 1010 -> 10 in decimal. Thats why substract 55
-    if(c == 'A' || (c > 'A' && c < 'F') || c == 'F')
-    {
-        return (uint8_t) c - 55;
-    }
-    // a = 97 -> a = 1010 -> 10 in decimal. Thats why substract 87
-    else if(c == 'a' || (c > 'a' && c < 'f') || c == 'f')
-    {
-        return (uint8_t) c - 87;
-    }
-    // 0 = 65 -> A = 1010 -> 10 in decimal. Thats why substract 55
-    else if(c == '0' || (c > '0' && c < '9') || c == '9')
-    {
-        return (uint8_t) c - 48;
-    }
-    return 0;
-}
-
-static uint16_t string_to_hex_uint16_t(const char *string)
-{
-    uint16_t cast = 0x0000;
-    if (strlen(string) == 4)
-    {
-        cast = (uint16_t) ( (char_to_uint8_t(string[0]) << 12)
-                          | (char_to_uint8_t(string[1]) << 8)
-                          | (char_to_uint8_t(string[2]) << 4)
-                          |  char_to_uint8_t(string[3]));
-    }
-    return cast;
 }
 
 static action_t* parse_build_task(char *json, int* size)
