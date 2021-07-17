@@ -21,6 +21,7 @@ FLUJO:
 
 . menu config
     - target <addr>
+    - netkey-add <index netkey>
     - appkey-add <index appkey>
     - bind <addr> <index appkey> <model id>
 
@@ -240,11 +241,12 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                 ESP_LOGE(TAG, "Invalid Sensor Descriptor Status length %d", param->status_cb.descriptor_status.descriptor->len);
                 return;
             }
-            if (param->status_cb.descriptor_status.descriptor->len) {
+            if (param->status_cb.descriptor_status.descriptor->len)
+            {
                 ESP_LOG_BUFFER_HEX("Sensor Descriptor", param->status_cb.descriptor_status.descriptor->data,
                     param->status_cb.descriptor_status.descriptor->len);
 
-                message = create_message(HEX_BUFFER);
+                message = create_message(GET_DESCRIPTOR);
                 add_hex_buffer(message,
                         param->status_cb.descriptor_status.descriptor->data,
                         param->status_cb.descriptor_status.descriptor->len
@@ -324,7 +326,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
 
                         ESP_LOGW(TAG, "Temperature %d", measure);
 
-                        message = create_message(MEASURE);
+                        message = create_message(GET_STATUS);
                         add_measure_to_message(message, param->params->ctx.addr, measure);
                         send_message_queue(message);
 
@@ -409,7 +411,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                         int measure = *(data + mpid_len);
                         ESP_LOGW(TAG, "Temperature %d", measure);
 
-                        message = create_message(MEASURE);
+                        message = create_message(GET_STATUS);
                         add_measure_to_message(message, param->params->ctx.addr, measure);
                         send_message_queue(message);
 
@@ -432,7 +434,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
     default:
         break;
     }
-    free_message(message);
+    //free_message(message);
 }
 
 static void ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event,
