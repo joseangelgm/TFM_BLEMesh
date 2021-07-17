@@ -155,7 +155,6 @@ task_t* obtain_task(task_t* task)
 
     if(task_manager->first != NULL && task_manager->last != NULL)
     {
-        ESP_LOGW(TAG, "Obtain task: first and last are not null");
         if(equals(task_manager->first->task, task))
             return task_manager->first->task;
 
@@ -262,5 +261,4 @@ void queue_list_task()
     }
 
     send_message_queue(tasks_info);
-    free_message(tasks_info);
 }
