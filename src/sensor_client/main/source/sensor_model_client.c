@@ -217,6 +217,50 @@ static void ble_mesh_sensor_timeout(uint32_t opcode, uint16_t addr)
     ble_mesh_send_sensor_message(opcode, addr);
 }
 
+static void send_measure(esp_ble_mesh_sensor_client_cb_param_t *param)
+{
+    ESP_LOGI(TAG, "Sensor Status, opcode 0x%04x", param->params->ctx.recv_op);
+
+    if (param->status_cb.sensor_status.marshalled_sensor_data->len)
+    {
+        ESP_LOG_BUFFER_HEX("Sensor Data", param->status_cb.sensor_status.marshalled_sensor_data->data,
+            param->status_cb.sensor_status.marshalled_sensor_data->len);
+        uint8_t *data = param->status_cb.sensor_status.marshalled_sensor_data->data;
+        uint16_t length = 0;
+
+        for (; length < param->status_cb.sensor_status.marshalled_sensor_data->len; )
+        {
+            uint8_t fmt = ESP_BLE_MESH_GET_SENSOR_DATA_FORMAT(data);
+            uint8_t data_len = ESP_BLE_MESH_GET_SENSOR_DATA_LENGTH(data, fmt);
+            uint16_t prop_id = ESP_BLE_MESH_GET_SENSOR_DATA_PROPERTY_ID(data, fmt);
+            uint8_t mpid_len = (fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ?
+                                ESP_BLE_MESH_SENSOR_DATA_FORMAT_A_MPID_LEN : ESP_BLE_MESH_SENSOR_DATA_FORMAT_B_MPID_LEN);
+            ESP_LOGI(TAG, "Format %s, length 0x%02x, Sensor Property ID 0x%04x",
+                fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ? "A" : "B", data_len, prop_id);
+
+            if (data_len != ESP_BLE_MESH_SENSOR_DATA_ZERO_LEN)
+            {
+                ESP_LOG_BUFFER_HEX("Sensor Data", data + mpid_len, data_len + 1);
+
+                int measure = *(data + mpid_len);
+                ESP_LOGW(TAG, "Temperature %d", measure);
+
+                message_t* message = create_message(GET_STATUS);
+                add_measure_to_message(message, param->params->ctx.addr, measure);
+                send_message_queue(message);
+
+                length += mpid_len + data_len + 1;
+                data += mpid_len + data_len + 1;
+            }
+            else
+            {
+                length += mpid_len;
+                data += mpid_len;
+            }
+        }
+    }
+}
+
 static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t event,
                                               esp_ble_mesh_sensor_client_cb_param_t *param)
 {
@@ -234,7 +278,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
     switch (event) {
     case ESP_BLE_MESH_SENSOR_CLIENT_GET_STATE_EVT:
         switch (param->params->opcode) {
-        case ESP_BLE_MESH_MODEL_OP_SENSOR_DESCRIPTOR_GET:
+    00aa    case ESP_BLE_MESH_MODEL_OP_SENSOR_DESCRIPTOR_GET:
             ESP_LOGI(TAG, "Sensor Descriptor Status, opcode 0x%04x", param->params->ctx.recv_op);
             if (param->status_cb.descriptor_status.descriptor->len != ESP_BLE_MESH_SENSOR_SETTING_PROPERTY_ID_LEN &&
                 param->status_cb.descriptor_status.descriptor->len % ESP_BLE_MESH_SENSOR_DESCRIPTOR_LEN) {
@@ -305,39 +349,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
             }
             break;
         case ESP_BLE_MESH_MODEL_OP_SENSOR_GET: /* Read temperature */
-            ESP_LOGI(TAG, "Sensor Status, opcode 0x%04x", param->params->ctx.recv_op);
-            if (param->status_cb.sensor_status.marshalled_sensor_data->len) {
-                ESP_LOG_BUFFER_HEX("Sensor Data", param->status_cb.sensor_status.marshalled_sensor_data->data,
-                    param->status_cb.sensor_status.marshalled_sensor_data->len);
-                uint8_t *data = param->status_cb.sensor_status.marshalled_sensor_data->data;
-                uint16_t length = 0;
-                for (; length < param->status_cb.sensor_status.marshalled_sensor_data->len; ) {
-                    uint8_t fmt = ESP_BLE_MESH_GET_SENSOR_DATA_FORMAT(data);
-                    uint8_t data_len = ESP_BLE_MESH_GET_SENSOR_DATA_LENGTH(data, fmt);
-                    uint16_t prop_id = ESP_BLE_MESH_GET_SENSOR_DATA_PROPERTY_ID(data, fmt);
-                    uint8_t mpid_len = (fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ?
-                                        ESP_BLE_MESH_SENSOR_DATA_FORMAT_A_MPID_LEN : ESP_BLE_MESH_SENSOR_DATA_FORMAT_B_MPID_LEN);
-                    ESP_LOGI(TAG, "Format %s, length 0x%02x, Sensor Property ID 0x%04x",
-                        fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ? "A" : "B", data_len, prop_id);
-                    if (data_len != ESP_BLE_MESH_SENSOR_DATA_ZERO_LEN) {
-                        ESP_LOG_BUFFER_HEX("Sensor Data", data + mpid_len, data_len + 1);
-
-                        int measure = *(data + mpid_len);
-
-                        ESP_LOGW(TAG, "Temperature %d", measure);
-
-                        message = create_message(GET_STATUS);
-                        add_measure_to_message(message, param->params->ctx.addr, measure);
-                        send_message_queue(message);
-
-                        length += mpid_len + data_len + 1;
-                        data += mpid_len + data_len + 1;
-                    } else {
-                        length += mpid_len;
-                        data += mpid_len;
-                    }
-                }
-            }
+                send_measure(param);
             break;
         case ESP_BLE_MESH_MODEL_OP_SENSOR_COLUMN_GET:
             ESP_LOGI(TAG, "Sensor Column Status, opcode 0x%04x, Sensor Property ID 0x%04x",
@@ -385,48 +397,14 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
         este evento.
     */
     case ESP_BLE_MESH_SENSOR_CLIENT_PUBLISH_EVT:
-        ESP_LOGI(TAG, "Receive message from group");
-        if(param->params->ctx.recv_op == ESP_BLE_MESH_MODEL_OP_SENSOR_GET)
+        ESP_LOGI(TAG, "Receive message from group. opcode 0x%04x", param->params->opcode);
+        switch(param->params->opcode)
         {
-            ESP_LOGI(TAG, "Sensor Status, opcode 0x%04x", param->params->ctx.recv_op);
-            ESP_LOG_BUFFER_HEX("Sensor Cadence", param->status_cb.cadence_status.sensor_cadence_value->data,
-                param->status_cb.cadence_status.sensor_cadence_value->len
-            );
-            if (param->status_cb.sensor_status.marshalled_sensor_data->len) {
-                ESP_LOG_BUFFER_HEX("Sensor Data", param->status_cb.sensor_status.marshalled_sensor_data->data,
-                    param->status_cb.sensor_status.marshalled_sensor_data->len);
-                uint8_t *data = param->status_cb.sensor_status.marshalled_sensor_data->data;
-                uint16_t length = 0;
-                for (; length < param->status_cb.sensor_status.marshalled_sensor_data->len; ) {
-                    uint8_t fmt = ESP_BLE_MESH_GET_SENSOR_DATA_FORMAT(data);
-                    uint8_t data_len = ESP_BLE_MESH_GET_SENSOR_DATA_LENGTH(data, fmt);
-                    uint16_t prop_id = ESP_BLE_MESH_GET_SENSOR_DATA_PROPERTY_ID(data, fmt);
-                    uint8_t mpid_len = (fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ?
-                                        ESP_BLE_MESH_SENSOR_DATA_FORMAT_A_MPID_LEN : ESP_BLE_MESH_SENSOR_DATA_FORMAT_B_MPID_LEN);
-                    ESP_LOGI(TAG, "Format %s, length 0x%02x, Sensor Property ID 0x%04x",
-                        fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ? "A" : "B", data_len, prop_id);
-                    if (data_len != ESP_BLE_MESH_SENSOR_DATA_ZERO_LEN) {
-                        ESP_LOG_BUFFER_HEX("Sensor Data", data + mpid_len, data_len + 1);
-
-                        int measure = *(data + mpid_len);
-                        ESP_LOGW(TAG, "Temperature %d", measure);
-
-                        message = create_message(GET_STATUS);
-                        add_measure_to_message(message, param->params->ctx.addr, measure);
-                        send_message_queue(message);
-
-                        length += mpid_len + data_len + 1;
-                        data += mpid_len + data_len + 1;
-                    } else {
-                        length += mpid_len;
-                        data += mpid_len;
-                    }
-                }
-            }
-
-        }
-        else{
-            ESP_LOGI(TAG, "Receive message from group not allow to process. opcode 0x%04x", param->params->ctx.recv_op);
+            case ESP_BLE_MESH_MODEL_OP_SENSOR_STATUS:
+                send_measure(param);
+                break;
+            default:
+                break;
         }
         break;
     case ESP_BLE_MESH_SENSOR_CLIENT_TIMEOUT_EVT: // Si da timeout, vuelve a enviar el mensaje
@@ -434,7 +412,6 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
     default:
         break;
     }
-    //free_message(message);
 }
 
 static void ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event,
