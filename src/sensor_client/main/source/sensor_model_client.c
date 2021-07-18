@@ -217,7 +217,7 @@ static void ble_mesh_sensor_timeout(uint32_t opcode, uint16_t addr)
     ble_mesh_send_sensor_message(opcode, addr);
 }
 
-static void send_measure(esp_ble_mesh_sensor_client_cb_param_t *param)
+static void publish_measure(esp_ble_mesh_sensor_client_cb_param_t *param)
 {
     ESP_LOGI(TAG, "Sensor Status, opcode 0x%04x", param->params->ctx.recv_op);
 
@@ -278,7 +278,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
     switch (event) {
     case ESP_BLE_MESH_SENSOR_CLIENT_GET_STATE_EVT:
         switch (param->params->opcode) {
-    00aa    case ESP_BLE_MESH_MODEL_OP_SENSOR_DESCRIPTOR_GET:
+        case ESP_BLE_MESH_MODEL_OP_SENSOR_DESCRIPTOR_GET:
             ESP_LOGI(TAG, "Sensor Descriptor Status, opcode 0x%04x", param->params->ctx.recv_op);
             if (param->status_cb.descriptor_status.descriptor->len != ESP_BLE_MESH_SENSOR_SETTING_PROPERTY_ID_LEN &&
                 param->status_cb.descriptor_status.descriptor->len % ESP_BLE_MESH_SENSOR_DESCRIPTOR_LEN) {
@@ -349,7 +349,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
             }
             break;
         case ESP_BLE_MESH_MODEL_OP_SENSOR_GET: /* Read temperature */
-                send_measure(param);
+                publish_measure(param);
             break;
         case ESP_BLE_MESH_MODEL_OP_SENSOR_COLUMN_GET:
             ESP_LOGI(TAG, "Sensor Column Status, opcode 0x%04x, Sensor Property ID 0x%04x",
@@ -401,7 +401,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
         switch(param->params->opcode)
         {
             case ESP_BLE_MESH_MODEL_OP_SENSOR_STATUS:
-                send_measure(param);
+                publish_measure(param);
                 break;
             default:
                 break;
