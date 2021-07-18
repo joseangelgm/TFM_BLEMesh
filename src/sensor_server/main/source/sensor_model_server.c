@@ -278,7 +278,8 @@ send:
     free(status);
 }
 
-static void ble_mesh_send_sensor_cadence_status(esp_ble_mesh_sensor_server_cb_param_t *param){
+static void ble_mesh_send_sensor_cadence_status(esp_ble_mesh_sensor_server_cb_param_t *param)
+{
 
     esp_err_t err;
 
