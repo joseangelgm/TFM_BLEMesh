@@ -174,6 +174,10 @@ static char* get_descriptor_to_json(hex_buffer_t *hex)
     if(root == NULL)
         goto error;
 
+    cJSON *type = cJSON_CreateString("GET_DESCRIPTOR");
+    if(type == NULL)
+        goto error;
+
 
     // sensor_prop_id
     uint8_t sensor_prop_id[] = {
@@ -187,8 +191,6 @@ static char* get_descriptor_to_json(hex_buffer_t *hex)
     if(sensor_prop_id_json == NULL)
         goto error;
 
-    cJSON_AddItemToObject(root, "sensor_prop_id", sensor_prop_id_json);
-
     // positive tolerance
     uint8_t pos_tolerance[] = {
         hex->data[2],
@@ -200,8 +202,6 @@ static char* get_descriptor_to_json(hex_buffer_t *hex)
     cJSON *pos_tolerance_json = cJSON_CreateString(pos_tolerance_str); free(pos_tolerance_str);
     if(pos_tolerance_json == NULL)
         goto error;
-
-    cJSON_AddItemToObject(root, "pos_tolerance", pos_tolerance_json);
 
     // negative tolerance
     uint8_t neg_tolerance[] = {
@@ -215,8 +215,6 @@ static char* get_descriptor_to_json(hex_buffer_t *hex)
     if(neg_tolerance_json == NULL)
         goto error;
 
-    cJSON_AddItemToObject(root, "neg_tolerance", neg_tolerance_json);
-
     // sample_func
     uint8_t sample_func[] = {
         hex->data[5]
@@ -227,8 +225,6 @@ static char* get_descriptor_to_json(hex_buffer_t *hex)
     cJSON *sample_func_json = cJSON_CreateString(sample_func_str); free(sample_func_str);
     if(sample_func_json == NULL)
         goto error;
-
-    cJSON_AddItemToObject(root, "sample_function", sample_func_json);
 
     // measure_period
     uint8_t measure_period[] = {
@@ -241,8 +237,6 @@ static char* get_descriptor_to_json(hex_buffer_t *hex)
     if(measure_period_json == NULL)
         goto error;
 
-    cJSON_AddItemToObject(root, "measure_period", measure_period_json);
-
     // update_interval
     uint8_t update_interval[] = {
         hex->data[7]
@@ -254,6 +248,13 @@ static char* get_descriptor_to_json(hex_buffer_t *hex)
     if(update_interval_json == NULL)
         goto error;
 
+    // build json
+    cJSON_AddItemToObject(root, "type", type);
+    cJSON_AddItemToObject(root, "sensor_prop_id", sensor_prop_id_json);
+    cJSON_AddItemToObject(root, "pos_tolerance", pos_tolerance_json);
+    cJSON_AddItemToObject(root, "neg_tolerance", neg_tolerance_json);
+    cJSON_AddItemToObject(root, "sample_function", sample_func_json);
+    cJSON_AddItemToObject(root, "measure_period", measure_period_json);
     cJSON_AddItemToObject(root, "update_interval", update_interval_json);
 
     json = cJSON_Print(root);
