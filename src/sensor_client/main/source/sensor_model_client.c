@@ -407,7 +407,8 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                 break;
         }
         break;
-    case ESP_BLE_MESH_SENSOR_CLIENT_TIMEOUT_EVT: // Si da timeout, vuelve a enviar el mensaje
+    case ESP_BLE_MESH_SENSOR_CLIENT_TIMEOUT_EVT:
+        ESP_LOGI(TAG, "Timeout: opcode 0x%04x, 0x%04x", param->params->opcode, param->params->ctx.addr);
         //ble_mesh_sensor_timeout(param->params->opcode, param->params->ctx.addr);
     default:
         break;
