@@ -27,21 +27,20 @@ extern void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr);
  */
 static uint32_t get_opcode(const char *opcode)
 {
-    if(strcmp(opcode, "GET_STATUS") == 0){
-        return ESP_BLE_MESH_MODEL_OP_SENSOR_GET;
-    }
-    else if(strcmp(opcode, "GET_CADENCE") == 0){
-        return ESP_BLE_MESH_MODEL_OP_SENSOR_CADENCE_GET;
-    }
-    else if(strcmp(opcode, "GET_DESCRIPTOR") == 0){
+    /* Supported opcodes by esp ble mesh at 19-07-2021 */
+    if(strcmp(opcode, "GET_DESCRIPTOR") == 0){
         return ESP_BLE_MESH_MODEL_OP_SENSOR_DESCRIPTOR_GET;
     }
-    else if(strcmp(opcode, "GET_SETTINGS") == 0){
-        return ESP_BLE_MESH_MODEL_OP_SENSOR_SETTINGS_GET;
+    else if(strcmp(opcode, "GET_SETTING") == 0){
+        return ESP_BLE_MESH_MODEL_OP_SENSOR_SETTING_GET;
     }
-    else if(strcmp(opcode, "GET_SERIES") == 0){
-        return ESP_BLE_MESH_MODEL_OP_SENSOR_SERIES_GET;
+    else if(strcmp(opcode, "GET_STATUS") == 0){
+        return ESP_BLE_MESH_MODEL_OP_SENSOR_GET;
     }
+    else if(strcmp(opcode, "GET_COLUMN") == 0){
+        return ESP_BLE_MESH_MODEL_OP_SENSOR_COLUMN_GET;
+    }
+
     return 0;
 }
 
@@ -69,10 +68,10 @@ static char* sanitize_string(const char* string)
 static void task_ble_cmd(void *params)
 {
     ble_task_t ble_task = (*(ble_task_t *) params);
-    ESP_LOGI(TAG, "[%s] auto = %d, opcode = 0x%02X, delay = %d, addr = 0x%02X", ble_task.name, (int)ble_task.auto_task, ble_task.opcode, ble_task.delay, ble_task.addr);
 
     if(ble_task.auto_task)
     {
+        ESP_LOGI(TAG, "[%s] auto = %d, opcode = 0x%04X, delay = %d, addr = 0x%04X", ble_task.name, (int)ble_task.auto_task, ble_task.opcode, ble_task.delay, ble_task.addr);
         for(;;)
         {
             ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr);
@@ -81,13 +80,19 @@ static void task_ble_cmd(void *params)
     }
     else
     {
+        ESP_LOGI(TAG, "[One-time task] opcode = 0x%04X, addr = 0x%04X", ble_task.opcode, ble_task.addr);
         ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr);
     }
 
     vTaskDelete(NULL);
 }
 
-static bool is_auto_task(uint32_t opcode)
+/**
+ * @brief Return if auto value is required in json
+ * @param opcode: BLE Mesh message opcode
+ * @retval true or false.
+ */
+static bool is_auto_required(uint32_t opcode)
 {
     return opcode == ESP_BLE_MESH_MODEL_OP_SENSOR_GET;
 }
@@ -95,8 +100,8 @@ static bool is_auto_task(uint32_t opcode)
 /**
  * @brief Parse json and returns task to be launched or removed.
  *
- * @param json: json received through mqtt.
  * @param message_t*: struct to store messages to give feedback
+ * @param json: json received through mqtt.
  * @retval size: size of action_t array.
  * @retval action_t*: array of tasks.
  */
@@ -119,7 +124,6 @@ static action_t* parse_build_task(message_t* messages, char *json, int* size)
 
             cJSON_ArrayForEach(action, actions)
             {
-
                 const cJSON *auto_task = cJSON_GetObjectItem(action, "auto");
                 const cJSON *opcode    = cJSON_GetObjectItem(action, "opcode");
                 const cJSON *delay     = cJSON_GetObjectItem(action, "delay");
@@ -128,54 +132,52 @@ static action_t* parse_build_task(message_t* messages, char *json, int* size)
 
                 // Task to delete
                 if(opcode == NULL && delay == NULL
-                    && addr == NULL && name != NULL)
+                    && auto_task == NULL && addr == NULL
+                    && name != NULL)
                 {
-                    // If name is a string
-                    if(cJSON_IsString(name))
-                    {
-                        acts[index].opmode = REMOVE;
-                        acts[index].task.name = name->valuestring;
-                    }
+                    acts[index].opmode = REMOVE;
+                    acts[index].task.name = name->valuestring;
                 }
-                // Task to create
-                else if(auto_task != NULL && cJSON_IsBool(auto_task)
-                        && opcode != NULL && cJSON_IsString(opcode)
-                        && delay  != NULL && cJSON_IsNumber(delay)
-                        && name   != NULL && cJSON_IsString(name))
+                // Task to create -> one time
+                else if(opcode != NULL && addr != NULL)
                 {
-
                     acts[index].opmode      = CREATE;
-                    acts[index].task.name   = sanitize_string(name->valuestring);
-                    acts[index].task.delay  = delay->valueint;
                     acts[index].task.opcode = get_opcode(opcode->valuestring);
                     acts[index].task.addr   = string_to_hex_uint16_t(addr->valuestring);
 
-                    //Determine if task is auto or not depending of opcode an auto_task
-                    bool can_be_auto = is_auto_task(acts[index].task.opcode);
+                    if(auto_task != NULL) // task to create periodically
+                    {
+                        if(cJSON_IsTrue(auto_task) && is_auto_required(acts[index].task.opcode))
+                        {
+                            acts[index].task.auto_task = true;
+                            acts[index].task.name   = sanitize_string(name->valuestring);
+                            acts[index].task.delay  = delay->valueint;
+                        }
+                        else
+                        {
+                            acts[index].task.auto_task = false;
+                        }
+                    }
 
-                    if(cJSON_IsTrue(auto_task) && can_be_auto)
-                        acts[index].task.auto_task = true;
-                    else
-                        acts[index].task.auto_task = false;
                 }
                 else
                 {
-                    // Error leyendo la tarea <task_name>
                     ESP_LOGE(TAG, "Error processing a task!");
+                    add_message_text_plain(messages, "Error processing a task!");
                 }
                 index++;
             }
-            *size = index; // Get real number of tasks that will be processed
+            *size = index;
         }
         else{
-            // Error obteniendo el numero de tareas
-            ESP_LOGE(TAG, "Error getting number of tasks!");
+            ESP_LOGE(TAG, "Action size is zero");
+            add_message_text_plain(messages, "Action size is zero");
         }
     }
     else
     {
-        // Devolver error de que no esta bien formado el json
-        ESP_LOGE(TAG, "Json bad formed!");
+        add_message_text_plain(messages, "Action list required");
+        ESP_LOGE(TAG, "Action list required");
     }
     return acts;
 }
@@ -219,15 +221,10 @@ static void delete_task(ble_task_t *ble_task, message_t *messages)
  */
 static void create_task(ble_task_t *ble_task, message_t *messages)
 {
-    ESP_LOGI(TAG, "Creating task:\n\tname %s,\n\tauto %d,\n\topcode %u,\n\tdelay %d\n\taddr %X",
-        ble_task->name, (int)ble_task->auto_task,
-        ble_task->opcode, ble_task->delay,
-        ble_task->addr);
 
     // If it is auto, it will be register into task_manager
     if(ble_task->auto_task)
     {
-        ESP_LOGI(TAG, "Task %s is auto", ble_task->name);
 
         // Check if the tasks exists
         TaskHandle_t TaskHandle = NULL;
@@ -254,12 +251,15 @@ static void create_task(ble_task_t *ble_task, message_t *messages)
     // If it is not auto task, just create it.
     else
     {
-        ESP_LOGI(TAG, "Task %s is not auto", ble_task->name);
-
         ble_task_t aux;
         memcpy(&aux, ble_task, sizeof(ble_task_t));
-        xTaskCreate(&task_ble_cmd, aux.name, 2048, (void *) &aux, 5, NULL);
-        add_message_text_plain(messages, "Task %s launched", ble_task->name);
+
+        // Create a name for one time task
+        char buff[80];
+        sprintf(buff, "Task 0x%04x, addr 0x%04x", aux.opcode, aux.addr);
+
+        xTaskCreate(&task_ble_cmd, buff, 2048, (void *) &aux, 5, NULL);
+        add_message_text_plain(messages, "One-time Task with opcode 0x%04x, addr 0x%04x launched", ble_task->opcode, ble_task->addr);
     }
 }
 

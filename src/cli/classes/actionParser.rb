@@ -12,11 +12,10 @@ class ActionParser
     private_constant :TEMP_FILE
 
     OPCODES = [
-        'GET_STATUS',
-        'GET_CADENCE',
         'GET_DESCRIPTOR',
-        'GET_SETTINGS',
-        'GET_SERIES'
+        'GET_SETTING',
+        'GET_STATUS',
+        'GET_COLUMN'
     ]
     private_constant :OPCODES
 
@@ -63,34 +62,49 @@ class ActionParser
         puts JSON.pretty_generate(@actions_json)
     end
 
+    def is_auto_required?(opcode)
+        opcode == 'GET_STATUS'
+    end
+
     def check_json
         puts "Checking if json is correct..."
         if !@actions_json.key? 'actions'
-            raise Exception, "Missing actions. Contains a list of task to be created."
+            raise Exception, "Missing actions. Contains a list of actions or task to be created/removed."
         else
             @actions_json['actions'].each do |elem|
 
                 # remove task
                 if elem.keys.length == 1
-                    raise Exception, "To remove a task only add name field in json" if !(elem.keys.include? 'name')
+                    raise Exception, "To remove a task only add name field in json" if !elem.keys.include? 'name'
                 else
-                    # auto
-                    raise Exception, "Missing auto param. true if is a repetitive task, false otherwise." if !elem.key? 'auto'
 
-                    # opcode
+                    # is opcode?
                     raise Exception, "Missing opcode. Has to be within #{OPCODES.to_s}" if !elem.key? 'opcode'
                     raise Exception, "Opcode value invalid. Has to be within #{OPCODES.to_s}" if !OPCODES.include? elem['opcode']
-
-                    #  delay
-                    raise Exception, "Missing delay param. Contains task's delay in seconds" if !elem.key? 'delay'
-
-                    # name
-                    raise Exception, "Missing name param. Contains the task's name" if !elem.key? 'name'
 
                     # addr
                     raise Exception, "Missing addr param. Contains the addr to send the message" if !elem.key? 'addr'
                     raise Exception, "addr is not correct. Has to be 4 length" if elem['addr'].length != 4
                     raise Exception, "addr contains an invalid character. Has to be a value within #{HEX_VALUES.to_s}" if !addr_hex_correct? elem['addr']
+
+                    # if auto is required then delay, name
+                    if is_auto_required?(elem['opcode']) && elem.key?('auto') && elem['auto']
+
+                        # auto
+                        # raise Exception, "Missing auto param. true if is a repetitive task, false otherwise." if !elem.key? 'auto'
+
+                        #  delay
+                        raise Exception, "Missing delay param. Contains task's delay in seconds" if !elem.key? 'delay'
+
+                        # name
+                        raise Exception, "Missing name param. Contains the task's name" if !elem.key? 'name'
+                    else
+                        # Remove, if they are, to not send unnecesary data
+                        elem.delete 'auto'
+                        elem.delete 'delay'
+                        elem.delete 'name'
+                    end
+
                 end
 
                 puts "#{"Correct".bold.green}: #{elem}"
