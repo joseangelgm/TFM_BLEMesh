@@ -13,11 +13,9 @@
 typedef enum {
     PLAIN_TEXT, // simple message with info, errors
     TASKS, // tasks list
+    TIMEOUT,
     GET_STATUS,
-//    GET_CADENCE,
     GET_DESCRIPTOR,
-//    GET_SETTINGS,
-//    GET_SERIES
     HEX_BUFFER
 } message_type_t;
 

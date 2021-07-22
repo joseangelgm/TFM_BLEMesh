@@ -273,7 +273,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
         return;
     }
 
-    message_t* message = NULL; // Variable to store received info
+    message_t* messages = NULL; // Variable to store received info
 
     switch (event) {
     case ESP_BLE_MESH_SENSOR_CLIENT_GET_STATE_EVT:
@@ -290,12 +290,12 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                 ESP_LOG_BUFFER_HEX("Sensor Descriptor", param->status_cb.descriptor_status.descriptor->data,
                     param->status_cb.descriptor_status.descriptor->len);
 
-                message = create_message(GET_DESCRIPTOR);
-                add_hex_buffer(message,
+                messages = create_message(GET_DESCRIPTOR);
+                add_hex_buffer(messages,
                         param->status_cb.descriptor_status.descriptor->data,
                         param->status_cb.descriptor_status.descriptor->len
                 );
-                send_message_queue(message);
+                send_message_queue(messages);
 
                 /* If running with sensor server example, sensor client can get two Sensor Property IDs.
                  * Currently we use the first Sensor Property ID for the following demonstration.
@@ -311,12 +311,12 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
             ESP_LOG_BUFFER_HEX("Sensor Cadence", param->status_cb.cadence_status.sensor_cadence_value->data,
                 param->status_cb.cadence_status.sensor_cadence_value->len);
 
-                message = create_message(HEX_BUFFER);
-                add_hex_buffer(message,
+                messages = create_message(HEX_BUFFER);
+                add_hex_buffer(messages,
                         param->status_cb.cadence_status.sensor_cadence_value->data,
                         param->status_cb.cadence_status.sensor_cadence_value->len
                 );
-                send_message_queue(message);
+                send_message_queue(messages);
             break;
         case ESP_BLE_MESH_MODEL_OP_SENSOR_SETTINGS_GET:
             ESP_LOGI(TAG, "Sensor Settings Status, opcode 0x%04x, Sensor Property ID 0x%04x",
@@ -324,12 +324,12 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
             ESP_LOG_BUFFER_HEX("Sensor Settings", param->status_cb.settings_status.sensor_setting_property_ids->data,
                 param->status_cb.settings_status.sensor_setting_property_ids->len);
 
-                message = create_message(HEX_BUFFER);
-                add_hex_buffer(message,
+                messages = create_message(HEX_BUFFER);
+                add_hex_buffer(messages,
                         param->status_cb.settings_status.sensor_setting_property_ids->data,
                         param->status_cb.settings_status.sensor_setting_property_ids->len
                 );
-                send_message_queue(message);
+                send_message_queue(messages);
             break;
         case ESP_BLE_MESH_MODEL_OP_SENSOR_SETTING_GET:
             ESP_LOGI(TAG, "Sensor Setting Status, opcode 0x%04x, Sensor Property ID 0x%04x, Sensor Setting Property ID 0x%04x",
@@ -340,12 +340,12 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                 ESP_LOG_BUFFER_HEX("Sensor Setting Raw", param->status_cb.setting_status.sensor_setting_raw->data,
                     param->status_cb.setting_status.sensor_setting_raw->len);
 
-                message = create_message(HEX_BUFFER);
-                add_hex_buffer(message,
+                messages = create_message(HEX_BUFFER);
+                add_hex_buffer(messages,
                         param->status_cb.setting_status.sensor_setting_raw->data,
                         param->status_cb.setting_status.sensor_setting_raw->len
                 );
-                send_message_queue(message);
+                send_message_queue(messages);
             }
             break;
         case ESP_BLE_MESH_MODEL_OP_SENSOR_GET: /* Read temperature */
@@ -408,7 +408,14 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
         }
         break;
     case ESP_BLE_MESH_SENSOR_CLIENT_TIMEOUT_EVT:
-        ESP_LOGI(TAG, "Timeout: opcode 0x%04x, 0x%04x", param->params->opcode, param->params->ctx.addr);
+        ESP_LOGI(TAG, "Timeout: opcode 0x%04x, destination 0x%04x", param->params->opcode, param->params->ctx.addr);
+
+        messages = create_message(TIMEOUT);
+        add_message_text_plain(messages,
+            "Timeout: opcode 0x%04x, destination 0x%04x",
+            param->params->opcode, param->params->ctx.addr
+        );
+        send_message_queue(messages);
         //ble_mesh_sensor_timeout(param->params->opcode, param->params->ctx.addr);
     default:
         break;

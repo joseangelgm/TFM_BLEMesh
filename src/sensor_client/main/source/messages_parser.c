@@ -333,9 +333,9 @@ message_t* create_message(message_type_t type)
 {
     message_t* message = (message_t*) malloc(sizeof(message_t));
 
-    if(type == PLAIN_TEXT || type == TASKS)
+    if(type == PLAIN_TEXT || type == TASKS || type == TIMEOUT)
     {
-        ESP_LOGI(TAG, "Creating PLAIN_TEXT, TASKS");
+        ESP_LOGI(TAG, "Creating PLAIN_TEXT, TASKS, TIMEOUT");
         message->m_content.text_plain.num_messages = 0;
     }
     else if(type == GET_STATUS)
@@ -366,6 +366,9 @@ char* message_to_json(message_t *message)
 
     if(message->type == TASKS)
         return text_plain_to_json(&message->m_content.text_plain, "tasks");
+
+    if(message->type == TIMEOUT)
+        return text_plain_to_json(&message->m_content.text_plain, "timeout");
 
     if(message->type == GET_STATUS)
         return get_status_to_json(&message->m_content.measure);
