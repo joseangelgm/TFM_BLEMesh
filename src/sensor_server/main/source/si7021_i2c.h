@@ -3,6 +3,8 @@
 
 #include "esp_log.h"
 
+#define DELAY_TIME_BETWEEN_ITEMS_MS 1
+
 /**
 * @brief Initialize circular buffer, configure gpio for i2c
 */

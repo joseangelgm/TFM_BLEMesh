@@ -19,7 +19,7 @@ static const char* TAG = "SensorServer";
 #define CID_ESP     0x02E5
 
 /* Sensor Property ID */
-#define SENSOR_PROPERTY_ID_0        0x0056  /* Present Indoor Ambient Temperature */
+#define SENSOR_PROPERTY_ID_0        0x0056  /* Sensor temperature */
 
 /* The characteristic of the two device properties is "Temperature 8", which is
  * used to represent a measure of temperature with a unit of 0.5 degree Celsius.
@@ -31,9 +31,9 @@ static const char* TAG = "SensorServer";
 #define SENSOR_NEGATIVE_TOLERANCE   ESP_BLE_MESH_SENSOR_UNSPECIFIED_NEG_TOLERANCE
 #define SENSOR_SAMPLE_FUNCTION      ESP_BLE_MESH_SAMPLE_FUNC_ARITHMETIC_MEAN
 #define SENSOR_MEASURE_PERIOD       ESP_BLE_MESH_SENSOR_NOT_APPL_MEASURE_PERIOD
-#define SENSOR_UPDATE_INTERVAL      ESP_BLE_MESH_SENSOR_NOT_APPL_UPDATE_INTERVAL
+#define SENSOR_UPDATE_INTERVAL      CONFIG_DELAY_TIME_ITEMS
 
-static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = { 0x00, 0x22 };
+static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = {0x00, 0x77};
 
 static esp_ble_mesh_cfg_srv_t config_server = {
     .relay = ESP_BLE_MESH_RELAY_ENABLED,
@@ -79,7 +79,7 @@ static esp_ble_mesh_sensor_state_t sensor_states[1] = {
         .descriptor.negative_tolerance = SENSOR_NEGATIVE_TOLERANCE,
         .descriptor.sampling_function = SENSOR_SAMPLE_FUNCTION,
         .descriptor.measure_period = SENSOR_MEASURE_PERIOD,
-        .descriptor.update_interval = SENSOR_UPDATE_INTERVAL,
+        .descriptor.update_interval = (uint8_t) SENSOR_UPDATE_INTERVAL,
         .sensor_data.format = ESP_BLE_MESH_SENSOR_DATA_FORMAT_A,
         .sensor_data.length = 0, /* 0 represents the length is 1 */
         .sensor_data.raw_value = &temp_sensor_data,
@@ -172,6 +172,11 @@ static void ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event, 
     ESP_LOGI(TAG, "ble_mesh_config_server_cb: event = %d", event);
     if (event == ESP_BLE_MESH_CFG_SERVER_STATE_CHANGE_EVT) {
         switch (param->ctx.recv_op) {
+        case ESP_BLE_MESH_MODEL_OP_NET_KEY_ADD:
+            ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_NET_KEY_ADD");
+            ESP_LOGI(TAG, "net_idx 0x%04x", param->value.state_change.netkey_add.net_idx);
+            ESP_LOG_BUFFER_HEX("NetKey", param->value.state_change.netkey_add.net_key, 16);
+            break;
         case ESP_BLE_MESH_MODEL_OP_APP_KEY_ADD:
             ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_APP_KEY_ADD");
             ESP_LOGI(TAG, "net_idx 0x%04x, app_idx 0x%04x",
@@ -348,8 +353,8 @@ static uint16_t ble_mesh_get_sensor_data(esp_ble_mesh_sensor_state_t *state, uin
     uint8_t temp = get_mean_temperature_data();
     ESP_LOGW(TAG, "Temperature: %d", temp);
 
-    net_buf_simple_pull_u8(&temp_sensor_data);
-    net_buf_simple_push_u8(&temp_sensor_data, temp);
+    net_buf_simple_pull_u8(state->sensor_data.raw_value);
+    net_buf_simple_push_u8(state->sensor_data.raw_value, temp);
 
     if (state->sensor_data.length == ESP_BLE_MESH_SENSOR_DATA_ZERO_LEN) {
         /* For zero-length sensor data, the length is 0x7F, and the format is Format B. */

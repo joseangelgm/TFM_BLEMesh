@@ -27,12 +27,26 @@ menu "TFM Configuration"
     endmenu
 
     menu "Sensor data configuration"
+        config BUFFER_SIZE
+            int "Number of measurements to store"
+            range 1 10
+            default 5
+            help
+                Number of measurements to store
+
         config WINDOW_SIZE
-            int "WINDOW_SIZE - Number of samples to calculate the mean"
-            range 1 4
+            int "Number of samples to calculate the mean"
+            range 1 10
             default 3
             help
                 Number of samples to calculate the mean
+
+        config DELAY_TIME_ITEMS
+            int "Time between sensor measurements in seconds"
+            range 1 5
+            default 2
+            help
+                Time between sensor measurements in seconds
     endmenu
 
 endmenu

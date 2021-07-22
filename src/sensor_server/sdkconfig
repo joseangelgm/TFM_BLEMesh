@@ -136,7 +136,9 @@ CONFIG_I2C_MASTER_FREQUENCY=100000
 #
 # Sensor data configuration
 #
+CONFIG_BUFFER_SIZE=5
 CONFIG_WINDOW_SIZE=3
+CONFIG_DELAY_TIME_ITEMS=2
 # end of Sensor data configuration
 # end of TFM Configuration
 

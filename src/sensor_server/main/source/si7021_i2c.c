@@ -5,8 +5,6 @@
 #define _I2C_NUMBER(num) I2C_NUM_##num
 #define I2C_NUMBER(num) _I2C_NUMBER(num)
 
-#define DELAY_TIME_BETWEEN_ITEMS_MS 1000 /*!< delay time between different test items */
-
 #define I2C_MASTER_SCL_IO CONFIG_I2C_MASTER_SCL               /*!< gpio number for I2C master clock */
 #define I2C_MASTER_SDA_IO CONFIG_I2C_MASTER_SDA               /*!< gpio number for I2C master data  */
 #define I2C_MASTER_NUM I2C_NUMBER(CONFIG_I2C_MASTER_PORT_NUM) /*!< I2C port number for master dev */
@@ -25,10 +23,9 @@
 #define NACK_VAL       0x1   /*!< I2C nack value */
 #define I2C_TIMEOUT_MS 1000
 
-#define N_SAMPLES CONFIG_NUM_SAMPLES
+#define DELAY_TIME_ITEMS CONFIG_DELAY_TIME_ITEMS
 #define WINDOW_SIZE CONFIG_WINDOW_SIZE
-
-#define SIZE 20
+#define SIZE CONFIG_BUFFER_SIZE
 
 /* Circular buffer */
 static int sensor_data[SIZE];
@@ -115,28 +112,35 @@ static float regularize_temperature(uint16_t bytes){
 /**
  *  @brief Task: Get temperature data and insert into circular buffer
  */
-void si7021_task_read_temperature(void* params){
+void si7021_task_read_temperature(void* params)
+{
 
     int ret;
     uint8_t sensor_data_h, sensor_data_l;
     uint16_t bytes = 0;
 
-    while (1) {
+    for(;;)
+    {
         ret = si7021_get_temperature(I2C_MASTER_NUM, &sensor_data_h, &sensor_data_l);
-        if (ret == ESP_ERR_TIMEOUT) {
+        if (ret == ESP_ERR_TIMEOUT)
+        {
             ESP_LOGE(TAG, "I2C Timeout");
-        } else if (ret == ESP_OK) {
+        }
+        else if (ret == ESP_OK)
+        {
             ESP_LOGD(TAG, "data_h: %02x, data_l: %02x", sensor_data_h, sensor_data_l);
 
             bytes = (sensor_data_h << 8 | sensor_data_l);
             float temp = regularize_temperature(bytes);
-            ESP_LOGD(TAG, "temp val: %.02f [ºC]", temp);
+            ESP_LOGI(TAG, "Sensor temp: %.02f [ºC]", temp);
 
             insert_data(temp);
-        } else {
+        }
+        else
+        {
             ESP_LOGW(TAG, "%s: No ack, sensor not connected...skip...", esp_err_to_name(ret));
         }
-        vTaskDelay(DELAY_TIME_BETWEEN_ITEMS_MS  / portTICK_RATE_MS);
+        vTaskDelay(DELAY_TIME_ITEMS * 1000 / portTICK_RATE_MS);
     }
     vTaskDelete(NULL);
 }
