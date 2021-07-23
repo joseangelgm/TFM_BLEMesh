@@ -61,33 +61,6 @@ static char* sanitize_string(const char* string)
 }
 
 /**
- * @brief Function to use as a task.
- * Every json received will be converted into ble_task_t
- * and then will be launch a task with this function.
- */
-static void task_ble_cmd(void *params)
-{
-    ble_task_t ble_task = (*(ble_task_t *) params);
-
-    if(ble_task.auto_task)
-    {
-        ESP_LOGI(TAG, "[%s] auto = %d, opcode = 0x%04X, delay = %d, addr = 0x%04X", ble_task.name, (int)ble_task.auto_task, ble_task.opcode, ble_task.delay, ble_task.addr);
-        for(;;)
-        {
-            ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr);
-            vTaskDelay(ble_task.delay * 1000 / portTICK_PERIOD_MS);
-        }
-    }
-    else
-    {
-        ESP_LOGI(TAG, "[One-time task] opcode = 0x%04X, addr = 0x%04X", ble_task.opcode, ble_task.addr);
-        ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr);
-    }
-
-    vTaskDelete(NULL);
-}
-
-/**
  * @brief Return if auto value is required in json
  * @param opcode: BLE Mesh message opcode
  * @retval true or false.
@@ -95,6 +68,61 @@ static void task_ble_cmd(void *params)
 static bool is_auto_required(uint32_t opcode)
 {
     return opcode == ESP_BLE_MESH_MODEL_OP_SENSOR_GET;
+}
+
+/**
+ * @brief Build a task based on a sigle element from json
+ * @param ble_task: pointer to struct where a task will be store in
+ * @param action: single action json received from MQTT
+ * @param messages: struct to store messages for giving feedback to the user
+ * @retval whether if the task could be created properly
+ */
+static bool build_task(action_t *ble_task, const cJSON* action, message_t *messages)
+{
+    bool build = true;
+
+    const cJSON *auto_task = cJSON_GetObjectItem(action, "auto");
+    const cJSON *opcode    = cJSON_GetObjectItem(action, "opcode");
+    const cJSON *delay     = cJSON_GetObjectItem(action, "delay");
+    const cJSON *name      = cJSON_GetObjectItem(action, "name");
+    const cJSON *addr      = cJSON_GetObjectItem(action, "addr");
+
+    // Task to delete
+    if(opcode == NULL && delay == NULL
+        && auto_task == NULL && addr == NULL
+        && name != NULL)
+    {
+        ble_task->opmode = REMOVE;
+        ble_task->task.name = name->valuestring;
+    }
+    // Task to create -> one time
+    else if(opcode != NULL && addr != NULL)
+    {
+        ble_task->opmode      = CREATE;
+        ble_task->task.opcode = get_opcode(opcode->valuestring);
+        ble_task->task.addr   = string_to_hex_uint16_t(addr->valuestring);
+
+        if(auto_task != NULL) // task to create periodically
+        {
+            if(cJSON_IsTrue(auto_task) && is_auto_required(ble_task->task.opcode))
+            {
+                ble_task->task.auto_task = true;
+                ble_task->task.name   = sanitize_string(name->valuestring);
+                ble_task->task.delay  = delay->valueint;
+            }
+            else
+            {
+                ble_task->task.auto_task = false;
+            }
+        }
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Error processing a task!");
+        add_message_text_plain(messages, "Error processing a task!");
+        build = false;
+    }
+    return build;
 }
 
 /**
@@ -111,6 +139,7 @@ static action_t* parse_build_task(message_t* messages, char *json, int* size)
 
     cJSON *root = cJSON_Parse(json);
     const cJSON *actions = cJSON_GetObjectItem(root, "actions");
+
     if(actions != NULL)
     {
         const cJSON *action = NULL;
@@ -124,48 +153,8 @@ static action_t* parse_build_task(message_t* messages, char *json, int* size)
 
             cJSON_ArrayForEach(action, actions)
             {
-                const cJSON *auto_task = cJSON_GetObjectItem(action, "auto");
-                const cJSON *opcode    = cJSON_GetObjectItem(action, "opcode");
-                const cJSON *delay     = cJSON_GetObjectItem(action, "delay");
-                const cJSON *name      = cJSON_GetObjectItem(action, "name");
-                const cJSON *addr      = cJSON_GetObjectItem(action, "addr");
-
-                // Task to delete
-                if(opcode == NULL && delay == NULL
-                    && auto_task == NULL && addr == NULL
-                    && name != NULL)
-                {
-                    acts[index].opmode = REMOVE;
-                    acts[index].task.name = name->valuestring;
-                }
-                // Task to create -> one time
-                else if(opcode != NULL && addr != NULL)
-                {
-                    acts[index].opmode      = CREATE;
-                    acts[index].task.opcode = get_opcode(opcode->valuestring);
-                    acts[index].task.addr   = string_to_hex_uint16_t(addr->valuestring);
-
-                    if(auto_task != NULL) // task to create periodically
-                    {
-                        if(cJSON_IsTrue(auto_task) && is_auto_required(acts[index].task.opcode))
-                        {
-                            acts[index].task.auto_task = true;
-                            acts[index].task.name   = sanitize_string(name->valuestring);
-                            acts[index].task.delay  = delay->valueint;
-                        }
-                        else
-                        {
-                            acts[index].task.auto_task = false;
-                        }
-                    }
-
-                }
-                else
-                {
-                    ESP_LOGE(TAG, "Error processing a task!");
-                    add_message_text_plain(messages, "Error processing a task!");
-                }
-                index++;
+                if(build_task(&acts[index], action, messages))
+                    index++;
             }
             *size = index;
         }
@@ -212,6 +201,33 @@ static void delete_task(ble_task_t *ble_task, message_t *messages)
         ESP_LOGE(TAG, "Task %s doesn't exists. Remove failed", ble_task->name);
         add_message_text_plain(messages, "Task %s doesn't exists. Remove failed", ble_task->name);
     }
+}
+
+/**
+ * @brief Function to use as a task.
+ * Every json received will be converted into ble_task_t
+ * and then will be launch a task with this function.
+ */
+static void task_ble_cmd(void *params)
+{
+    ble_task_t ble_task = (*(ble_task_t *) params);
+
+    if(ble_task.auto_task)
+    {
+        ESP_LOGI(TAG, "[%s] auto = %d, opcode = 0x%04X, delay = %d, addr = 0x%04X", ble_task.name, (int)ble_task.auto_task, ble_task.opcode, ble_task.delay, ble_task.addr);
+        for(;;)
+        {
+            ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr);
+            vTaskDelay(ble_task.delay * 1000 / portTICK_PERIOD_MS);
+        }
+    }
+    else
+    {
+        ESP_LOGI(TAG, "[One-time task] opcode = 0x%04X, addr = 0x%04X", ble_task.opcode, ble_task.addr);
+        ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr);
+    }
+
+    vTaskDelete(NULL);
 }
 
 /**
