@@ -17,7 +17,7 @@
 static const char *TAG = "BLE_CMD";
 
 // function in sensor_model_client.c to send a message of type 'opcode' to a addr
-extern void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr);
+extern void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr, uint16_t sensor_prop_id);
 
 /**
  * @brief Return opcode string-like into uint32_t.
@@ -28,18 +28,11 @@ extern void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr);
 static uint32_t get_opcode(const char *opcode)
 {
     /* Supported opcodes by esp ble mesh at 19-07-2021 */
-    if(strcmp(opcode, "GET_DESCRIPTOR") == 0){
+    if(strcmp(opcode, "GET_DESCRIPTOR") == 0)
         return ESP_BLE_MESH_MODEL_OP_SENSOR_DESCRIPTOR_GET;
-    }
-    else if(strcmp(opcode, "GET_SETTING") == 0){
-        return ESP_BLE_MESH_MODEL_OP_SENSOR_SETTING_GET;
-    }
-    else if(strcmp(opcode, "GET_STATUS") == 0){
+
+    if(strcmp(opcode, "GET_STATUS") == 0)
         return ESP_BLE_MESH_MODEL_OP_SENSOR_GET;
-    }
-    else if(strcmp(opcode, "GET_COLUMN") == 0){
-        return ESP_BLE_MESH_MODEL_OP_SENSOR_COLUMN_GET;
-    }
 
     return 0;
 }
@@ -81,11 +74,12 @@ static bool build_task(action_t *ble_task, const cJSON* action, message_t *messa
 {
     bool build = true;
 
-    const cJSON *auto_task = cJSON_GetObjectItem(action, "auto");
-    const cJSON *opcode    = cJSON_GetObjectItem(action, "opcode");
-    const cJSON *delay     = cJSON_GetObjectItem(action, "delay");
-    const cJSON *name      = cJSON_GetObjectItem(action, "name");
-    const cJSON *addr      = cJSON_GetObjectItem(action, "addr");
+    const cJSON *auto_task      = cJSON_GetObjectItem(action, "auto");
+    const cJSON *opcode         = cJSON_GetObjectItem(action, "opcode");
+    const cJSON *delay          = cJSON_GetObjectItem(action, "delay");
+    const cJSON *name           = cJSON_GetObjectItem(action, "name");
+    const cJSON *addr           = cJSON_GetObjectItem(action, "addr");
+    const cJSON *sensor_prop_id = cJSON_GetObjectItem(action, "sensor_prop_id");
 
     // Task to delete
     if(opcode == NULL && delay == NULL
@@ -101,6 +95,16 @@ static bool build_task(action_t *ble_task, const cJSON* action, message_t *messa
         ble_task->opmode      = CREATE;
         ble_task->task.opcode = get_opcode(opcode->valuestring);
         ble_task->task.addr   = string_to_hex_uint16_t(addr->valuestring);
+
+        if(sensor_prop_id != NULL)
+        {
+            ble_task->task.sensor_prop_id = string_to_hex_uint16_t(sensor_prop_id->valuestring);
+        }
+        else
+        {
+            ble_task->task.sensor_prop_id = 0x0000;
+        }
+
 
         if(auto_task != NULL) // task to create periodically
         {
@@ -214,17 +218,17 @@ static void task_ble_cmd(void *params)
 
     if(ble_task.auto_task)
     {
-        ESP_LOGI(TAG, "[%s] auto = %d, opcode = 0x%04X, delay = %d, addr = 0x%04X", ble_task.name, (int)ble_task.auto_task, ble_task.opcode, ble_task.delay, ble_task.addr);
+        ESP_LOGI(TAG, "[%s] auto = %d, opcode = 0x%04X, delay = %d, addr = 0x%04X, sensor_prop_id = 0x%04X", ble_task.name, (int)ble_task.auto_task, ble_task.opcode, ble_task.delay, ble_task.addr, ble_task.sensor_prop_id);
         for(;;)
         {
-            ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr);
+            ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr, ble_task.sensor_prop_id);
             vTaskDelay(ble_task.delay * 1000 / portTICK_PERIOD_MS);
         }
     }
     else
     {
-        ESP_LOGI(TAG, "[One-time task] opcode = 0x%04X, addr = 0x%04X", ble_task.opcode, ble_task.addr);
-        ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr);
+        ESP_LOGI(TAG, "[One-time task] opcode = 0x%04X, addr = 0x%04X, sensor_prop_id = 0x%04X", ble_task.opcode, ble_task.addr, ble_task.sensor_prop_id);
+        ble_mesh_send_sensor_message(ble_task.opcode, ble_task.addr, ble_task.sensor_prop_id);
     }
 
     vTaskDelete(NULL);

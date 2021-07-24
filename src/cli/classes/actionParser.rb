@@ -105,6 +105,11 @@ class ActionParser
                         elem.delete 'name'
                     end
 
+                    if elem.key? 'sensor_prop_id'
+                        raise Exception, "sensor_prop_id is not correct. Has to be 4 length" if elem['sensor_prop_id'].length != 4
+                        raise Exception, "sensor_prop_id contains an invalid character. Has to be a value within #{HEX_VALUES.to_s}" if !addr_hex_correct? elem['sensor_prop_id']
+                    end
+
                 end
 
                 puts "#{"Correct".bold.green}: #{elem}"

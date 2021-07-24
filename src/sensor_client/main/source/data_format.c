@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "source/data_format.h"
 
@@ -74,5 +75,26 @@ char* uint8_array_to_string(uint8_t *val, uint16_t len)
         uint8_to_char(val[i], &buff[i * 2], &buff[(i * 2) + 1]);
 	}
 
+    return buff;
+}
+
+char* uint16_to_string(uint16_t value)
+{
+    char* buff = (char *)malloc(sizeof(char) * 5);
+    memset(buff, '\0', 5);
+    sprintf(buff, "%X", value);
+
+    size_t size = strlen(buff);
+    if(size < 4)
+    {
+        int shift = 4 - size;
+        int i = 0;
+        // shift
+        for(i = 3; i >= shift; i--)
+            buff[i] = buff[i - shift];
+
+        for(; i >= 0; i--)
+            buff[i] = '0';
+    }
     return buff;
 }

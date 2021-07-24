@@ -88,37 +88,30 @@ static char* get_status_to_json(measure_t *m)
     if(root == NULL)
         goto error;
 
-    char addr_str[ADDR_SIZE];
-    memset(addr_str, '\0', ADDR_SIZE);
-    sprintf(addr_str, "%X", m->addr);
+    char* addr_str = uint16_to_string(m->addr);
 
-    size_t size = strlen(addr_str);
-    if(size < ADDR_SIZE - 1)
-    {
-        int shift = ADDR_SIZE - 1 - size;
-        int i = 0;
-        // shift
-        for(i = ADDR_SIZE - 2; i >= shift; i--)
-            addr_str[i] = addr_str[i - shift];
-
-        for(; i >= 0; i--)
-            addr_str[i] = '0';
-    }
-
-    cJSON *addr = cJSON_CreateString(addr_str);
+    cJSON *addr = cJSON_CreateString(addr_str); free(addr_str);
     if(addr == NULL)
+        goto error;
+
+    char* sensor_prop_id_str = uint16_to_string(m->sensor_prop_id);
+
+    cJSON *sensor_prop_id_json = cJSON_CreateString(sensor_prop_id_str); free(sensor_prop_id_str);
+    if(sensor_prop_id_json == NULL)
         goto error;
 
     cJSON *measure = cJSON_CreateNumber(m->value);
     if(measure == NULL)
         goto error;
 
+    cJSON_AddItemToObject(root, "sensor_prop_id", sensor_prop_id_json);
     cJSON_AddItemToObject(root, "addr", addr);
     cJSON_AddItemToObject(root, "measure", measure);
 
     json = cJSON_Print(root);
 
 error:
+
     cJSON_Delete(root);
     return json;
 }
@@ -178,84 +171,95 @@ static char* get_descriptor_to_json(hex_buffer_t *hex)
     if(type == NULL)
         goto error;
 
-
-    // sensor_prop_id
-    uint8_t sensor_prop_id[] = {
-        hex->data[0],
-        hex->data[1],
-    };
-
-    char *sensor_prop_id_str = uint8_array_to_string(sensor_prop_id, 2);
-
-    cJSON *sensor_prop_id_json = cJSON_CreateString(sensor_prop_id_str); free(sensor_prop_id_str);
-    if(sensor_prop_id_json == NULL)
-        goto error;
-
-    // positive tolerance
-    uint8_t pos_tolerance[] = {
-        hex->data[2],
-        hex->data[3] >> 4,
-    };
-
-    char *pos_tolerance_str = uint8_array_to_string(pos_tolerance, 2);
-
-    cJSON *pos_tolerance_json = cJSON_CreateString(pos_tolerance_str); free(pos_tolerance_str);
-    if(pos_tolerance_json == NULL)
-        goto error;
-
-    // negative tolerance
-    uint8_t neg_tolerance[] = {
-        hex->data[3] & 0xF,
-        hex->data[4],
-    };
-
-    char *neg_tolerance_str = uint8_array_to_string(neg_tolerance, 2);
-
-    cJSON *neg_tolerance_json = cJSON_CreateString(neg_tolerance_str); free(neg_tolerance_str);
-    if(neg_tolerance_json == NULL)
-        goto error;
-
-    // sample_func
-    uint8_t sample_func[] = {
-        hex->data[5]
-    };
-
-    char *sample_func_str = uint8_array_to_string(sample_func, 1);
-
-    cJSON *sample_func_json = cJSON_CreateString(sample_func_str); free(sample_func_str);
-    if(sample_func_json == NULL)
-        goto error;
-
-    // measure_period
-    uint8_t measure_period[] = {
-        hex->data[6]
-    };
-
-    char *measure_period_str = uint8_array_to_string(measure_period, 1);
-
-    cJSON *measure_period_json = cJSON_CreateString(measure_period_str); free(measure_period_str);
-    if(measure_period_json == NULL)
-        goto error;
-
-    // update_interval
-    uint8_t update_interval[] = {
-        hex->data[7]
-    };
-
-    char *update_interval_str = uint8_array_to_string(update_interval, 1);
-
-    cJSON *update_interval_json = cJSON_CreateString(update_interval_str); free(update_interval_str);
-    if(update_interval_json == NULL)
-        goto error;
-
-    // build json
     cJSON_AddItemToObject(root, "type", type);
-    cJSON_AddItemToObject(root, "sensor_prop_id", sensor_prop_id_json);
-    cJSON_AddItemToObject(root, "pos_tolerance", pos_tolerance_json);
-    cJSON_AddItemToObject(root, "neg_tolerance", neg_tolerance_json);
-    cJSON_AddItemToObject(root, "sample_function", sample_func_json);
-    cJSON_AddItemToObject(root, "measure_period", measure_period_json);
-    cJSON_AddItemToObject(root, "update_interval", update_interval_json);
+
+    cJSON *descriptors = cJSON_AddArrayToObject(root, "descriptors");
+    if(descriptors == NULL)
+        goto error;
+
+    for(int i = 0; i < hex->len; i += 8)
+    {
+        cJSON *descriptor = cJSON_CreateObject();
+        cJSON_AddItemToArray(descriptors, descriptor);
+
+        // sensor_prop_id
+        uint8_t sensor_prop_id[] = {
+            hex->data[i],
+            hex->data[i + 1],
+        };
+
+        char *sensor_prop_id_str = uint8_array_to_string(sensor_prop_id, 2);
+
+        cJSON *sensor_prop_id_json = cJSON_CreateString(sensor_prop_id_str); free(sensor_prop_id_str);
+        if(sensor_prop_id_json == NULL)
+            goto error;
+
+        // positive tolerance
+        uint8_t pos_tolerance[] = {
+            hex->data[i + 2],
+            hex->data[i + 3] >> 4,
+        };
+
+        char *pos_tolerance_str = uint8_array_to_string(pos_tolerance, 2);
+
+        cJSON *pos_tolerance_json = cJSON_CreateString(pos_tolerance_str); free(pos_tolerance_str);
+        if(pos_tolerance_json == NULL)
+            goto error;
+
+        // negative tolerance
+        uint8_t neg_tolerance[] = {
+            hex->data[i + 3] & 0xF,
+            hex->data[i + 4],
+        };
+
+        char *neg_tolerance_str = uint8_array_to_string(neg_tolerance, 2);
+
+        cJSON *neg_tolerance_json = cJSON_CreateString(neg_tolerance_str); free(neg_tolerance_str);
+        if(neg_tolerance_json == NULL)
+            goto error;
+
+        // sample_func
+        uint8_t sample_func[] = {
+            hex->data[i + 5]
+        };
+
+        char *sample_func_str = uint8_array_to_string(sample_func, 1);
+
+        cJSON *sample_func_json = cJSON_CreateString(sample_func_str); free(sample_func_str);
+        if(sample_func_json == NULL)
+            goto error;
+
+        // measure_period
+        uint8_t measure_period[] = {
+            hex->data[i + 6]
+        };
+
+        char *measure_period_str = uint8_array_to_string(measure_period, 1);
+
+        cJSON *measure_period_json = cJSON_CreateString(measure_period_str); free(measure_period_str);
+        if(measure_period_json == NULL)
+            goto error;
+
+        // update_interval
+        uint8_t update_interval[] = {
+            hex->data[i + 7]
+        };
+
+        char *update_interval_str = uint8_array_to_string(update_interval, 1);
+
+        cJSON *update_interval_json = cJSON_CreateString(update_interval_str); free(update_interval_str);
+        if(update_interval_json == NULL)
+            goto error;
+
+        // build json
+        cJSON_AddItemToObject(descriptor, "sensor_prop_id", sensor_prop_id_json);
+        cJSON_AddItemToObject(descriptor, "pos_tolerance", pos_tolerance_json);
+        cJSON_AddItemToObject(descriptor, "neg_tolerance", neg_tolerance_json);
+        cJSON_AddItemToObject(descriptor, "sample_function", sample_func_json);
+        cJSON_AddItemToObject(descriptor, "measure_period", measure_period_json);
+        cJSON_AddItemToObject(descriptor, "update_interval", update_interval_json);
+
+    }
 
     json = cJSON_Print(root);
 
@@ -297,12 +301,14 @@ void add_message_text_plain(message_t* m, const char* message, ...)
  * @brief Helper function to fill a measure_t struct
  * @param m: message_t struct
  * @param addr: addr to add into measure_t
+ * @param sensor_prop_id: sensor prop id which measure blongs to
  * @param measure: measure to add into measure_t
  */
-void add_measure_to_message(message_t* m, uint16_t addr, int measure)
+void add_measure_to_message(message_t* m, uint16_t addr, uint16_t sensor_prop_id, int measure)
 {
     m->m_content.measure.value = measure;
     m->m_content.measure.addr = addr;
+    m->m_content.measure.sensor_prop_id = sensor_prop_id;
 }
 
 /**
@@ -333,9 +339,9 @@ message_t* create_message(message_type_t type)
 {
     message_t* message = (message_t*) malloc(sizeof(message_t));
 
-    if(type == PLAIN_TEXT || type == TASKS || type == TIMEOUT)
+    if(type == PLAIN_TEXT || type == TASKS || type == TIMEOUT || type == ERROR)
     {
-        ESP_LOGI(TAG, "Creating PLAIN_TEXT, TASKS, TIMEOUT");
+        ESP_LOGI(TAG, "Creating PLAIN_TEXT, TASKS, TIMEOUT, ERROR");
         message->m_content.text_plain.num_messages = 0;
     }
     else if(type == GET_STATUS)
@@ -369,6 +375,9 @@ char* message_to_json(message_t *message)
 
     if(message->type == TIMEOUT)
         return text_plain_to_json(&message->m_content.text_plain, "timeout");
+
+    if(message->type == ERROR)
+        return text_plain_to_json(&message->m_content.text_plain, "errors");
 
     if(message->type == GET_STATUS)
         return get_status_to_json(&message->m_content.measure);

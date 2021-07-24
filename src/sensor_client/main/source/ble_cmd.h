@@ -17,6 +17,7 @@ typedef struct ble_task_t {
     int delay;       // seconds
     uint32_t opcode; // BLE opcode message
     uint16_t addr;   // addr to send the message
+    uint16_t sensor_prop_id; // sensor_prop_id to request info or change
 } ble_task_t;
 
 typedef struct action_t {

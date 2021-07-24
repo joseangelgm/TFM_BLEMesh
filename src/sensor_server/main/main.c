@@ -33,10 +33,5 @@ void app_main(void){
     ESP_ERROR_CHECK(ble_mesh_init());
     /****************************/
 
-    /*********** Tasks ***********/
-    ESP_LOGI(TAG, "Creating task -> Read temperature");
-    xTaskCreate(&si7021_task_read_temperature, "si7021 task temp read", 1024 * 2, (void *)0, 10, NULL);
-    /*****************************/
-
     vTaskDelete(NULL);
 }

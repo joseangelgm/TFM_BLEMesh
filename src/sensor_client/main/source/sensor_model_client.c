@@ -52,7 +52,6 @@ static const char* TAG = "SensorClient";
 #define MSG_ROLE            ROLE_NODE
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = { 0x00, 0x11 };
-static uint16_t sensor_prop_id;
 
 static struct esp_ble_mesh_key {
     uint16_t net_idx;
@@ -150,7 +149,7 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
     }
 }
 
-void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr)
+void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr, uint16_t sensor_prop_id)
 {
 
     ESP_LOGI(TAG, "ble_mesh_send_sensor_message: 0x%04x. Addr = 0x%04x", opcode, addr);
@@ -161,14 +160,28 @@ void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr)
 
     ble_mesh_set_msg_common(&common, sensor_client.model, opcode, addr);
     switch (opcode) {
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_CADENCE_GET:
-        get.cadence_get.property_id = sensor_prop_id;
+    case ESP_BLE_MESH_MODEL_OP_SENSOR_GET:
+        if(sensor_prop_id != 0x0000)
+        {
+            // indicate that we send optional parameters. In this case is sensor_prop_id
+            get.sensor_get.property_id = sensor_prop_id;
+            get.sensor_get.op_en = true;
+        }
+        else
+        {
+            get.sensor_get.op_en = false;
+        }
         break;
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_SETTINGS_GET:
-        get.settings_get.sensor_property_id = sensor_prop_id;
-        break;
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_SERIES_GET:
-        get.series_get.property_id = sensor_prop_id;
+    case ESP_BLE_MESH_MODEL_OP_SENSOR_DESCRIPTOR_GET:
+        if(sensor_prop_id != 0x0000)
+        {
+            get.descriptor_get.property_id = sensor_prop_id;
+            get.descriptor_get.op_en = true;
+        }
+        else
+        {
+            get.descriptor_get.op_en = false;
+        }
         break;
     default:
         break;
@@ -178,43 +191,6 @@ void ble_mesh_send_sensor_message(uint32_t opcode, uint16_t addr)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to send sensor message 0x%04x", opcode);
     }
-}
-
-static void ble_mesh_sensor_timeout(uint32_t opcode, uint16_t addr)
-{
-    switch (opcode) {
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_DESCRIPTOR_GET:
-        ESP_LOGW(TAG, "Sensor Descriptor Get timeout, opcode 0x%04x", opcode);
-        break;
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_CADENCE_GET:
-        ESP_LOGW(TAG, "Sensor Cadence Get timeout, opcode 0x%04x", opcode);
-        break;
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_CADENCE_SET:
-        ESP_LOGW(TAG, "Sensor Cadence Set timeout, opcode 0x%04x", opcode);
-        break;
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_SETTINGS_GET:
-        ESP_LOGW(TAG, "Sensor Settings Get timeout, opcode 0x%04x", opcode);
-        break;
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_SETTING_GET:
-        ESP_LOGW(TAG, "Sensor Setting Get timeout, opcode 0x%04x", opcode);
-        break;
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_SETTING_SET:
-        ESP_LOGW(TAG, "Sensor Setting Set timeout, opcode 0x%04x", opcode);
-        break;
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_GET:
-        ESP_LOGW(TAG, "Sensor Get timeout 0x%04x", opcode);
-        break;
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_COLUMN_GET:
-        ESP_LOGW(TAG, "Sensor Column Get timeout, opcode 0x%04x", opcode);
-        break;
-    case ESP_BLE_MESH_MODEL_OP_SENSOR_SERIES_GET:
-        ESP_LOGW(TAG, "Sensor Series Get timeout, opcode 0x%04x", opcode);
-        break;
-    default:
-        ESP_LOGE(TAG, "Unknown Sensor Get/Set opcode 0x%04x", opcode);
-        return;
-    }
-    ble_mesh_send_sensor_message(opcode, addr);
 }
 
 static void publish_measure(esp_ble_mesh_sensor_client_cb_param_t *param)
@@ -228,34 +204,48 @@ static void publish_measure(esp_ble_mesh_sensor_client_cb_param_t *param)
         uint8_t *data = param->status_cb.sensor_status.marshalled_sensor_data->data;
         uint16_t length = 0;
 
-        for (; length < param->status_cb.sensor_status.marshalled_sensor_data->len; )
+        if(data[0] == 0xFF) // prop id doesnt exists. Error.
         {
-            uint8_t fmt = ESP_BLE_MESH_GET_SENSOR_DATA_FORMAT(data);
-            uint8_t data_len = ESP_BLE_MESH_GET_SENSOR_DATA_LENGTH(data, fmt);
+            uint8_t fmt      = ESP_BLE_MESH_GET_SENSOR_DATA_FORMAT(data);
             uint16_t prop_id = ESP_BLE_MESH_GET_SENSOR_DATA_PROPERTY_ID(data, fmt);
-            uint8_t mpid_len = (fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ?
-                                ESP_BLE_MESH_SENSOR_DATA_FORMAT_A_MPID_LEN : ESP_BLE_MESH_SENSOR_DATA_FORMAT_B_MPID_LEN);
-            ESP_LOGI(TAG, "Format %s, length 0x%02x, Sensor Property ID 0x%04x",
-                fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ? "A" : "B", data_len, prop_id);
 
-            if (data_len != ESP_BLE_MESH_SENSOR_DATA_ZERO_LEN)
+            message_t* message = create_message(ERROR);
+            add_message_text_plain(message, "Sensor prop id 0x%04x doesnt exists in sensor addr 0x%04x", prop_id, param->params->ctx.addr);
+            send_message_queue(message);
+
+        }
+        else
+        {
+            for (; length < param->status_cb.sensor_status.marshalled_sensor_data->len; )
             {
-                ESP_LOG_BUFFER_HEX("Sensor Data", data + mpid_len, data_len + 1);
+                uint8_t fmt      = ESP_BLE_MESH_GET_SENSOR_DATA_FORMAT(data);
+                uint8_t data_len = ESP_BLE_MESH_GET_SENSOR_DATA_LENGTH(data, fmt);
+                uint16_t prop_id = ESP_BLE_MESH_GET_SENSOR_DATA_PROPERTY_ID(data, fmt);
+                uint8_t mpid_len = (fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ?
+                                    ESP_BLE_MESH_SENSOR_DATA_FORMAT_A_MPID_LEN : ESP_BLE_MESH_SENSOR_DATA_FORMAT_B_MPID_LEN);
 
-                int measure = *(data + mpid_len);
-                ESP_LOGW(TAG, "Temperature %d", measure);
+                ESP_LOGI(TAG, "Format %s, length 0x%02x, Sensor Property ID 0x%04x",
+                    fmt == ESP_BLE_MESH_SENSOR_DATA_FORMAT_A ? "A" : "B", data_len, prop_id);
 
-                message_t* message = create_message(GET_STATUS);
-                add_measure_to_message(message, param->params->ctx.addr, measure);
-                send_message_queue(message);
+                if (data_len != ESP_BLE_MESH_SENSOR_DATA_ZERO_LEN)
+                {
+                    ESP_LOG_BUFFER_HEX("Sensor Data", data + mpid_len, data_len + 1);
 
-                length += mpid_len + data_len + 1;
-                data += mpid_len + data_len + 1;
-            }
-            else
-            {
-                length += mpid_len;
-                data += mpid_len;
+                    int measure = *(data + mpid_len);
+                    ESP_LOGW(TAG, "Measure %d", measure);
+
+                    message_t* message = create_message(GET_STATUS);
+                    add_measure_to_message(message, param->params->ctx.addr, prop_id, measure);
+                    send_message_queue(message);
+
+                    length += mpid_len + data_len + 1;
+                    data += mpid_len + data_len + 1;
+                }
+                else
+                {
+                    length += mpid_len;
+                    data += mpid_len;
+                }
             }
         }
     }
@@ -287,22 +277,25 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
             }
             if (param->status_cb.descriptor_status.descriptor->len)
             {
-                ESP_LOG_BUFFER_HEX("Sensor Descriptor", param->status_cb.descriptor_status.descriptor->data,
+                if(param->status_cb.descriptor_status.descriptor->len == 8)
+                {
+                    ESP_LOG_BUFFER_HEX("Sensor Descriptor", param->status_cb.descriptor_status.descriptor->data,
                     param->status_cb.descriptor_status.descriptor->len);
 
-                messages = create_message(GET_DESCRIPTOR);
-                add_hex_buffer(messages,
-                        param->status_cb.descriptor_status.descriptor->data,
-                        param->status_cb.descriptor_status.descriptor->len
-                );
-                send_message_queue(messages);
+                    messages = create_message(GET_DESCRIPTOR);
+                    add_hex_buffer(messages,
+                            param->status_cb.descriptor_status.descriptor->data,
+                            param->status_cb.descriptor_status.descriptor->len
+                    );
+                    send_message_queue(messages);
+                }
+                else
+                {
+                    messages = create_message(ERROR);
+                    add_message_text_plain(messages, "Incorrect sensor prop id for device 0x%04x", param->params->ctx.addr);
+                    send_message_queue(messages);
+                }
 
-                /* If running with sensor server example, sensor client can get two Sensor Property IDs.
-                 * Currently we use the first Sensor Property ID for the following demonstration.
-                 */
-                // static uint16_t sensor_prop_id;
-                sensor_prop_id = param->status_cb.descriptor_status.descriptor->data[1] << 8 |
-                                 param->status_cb.descriptor_status.descriptor->data[0];
             }
             break;
         case ESP_BLE_MESH_MODEL_OP_SENSOR_CADENCE_GET:
@@ -416,7 +409,6 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
             param->params->opcode, param->params->ctx.addr
         );
         send_message_queue(messages);
-        //ble_mesh_sensor_timeout(param->params->opcode, param->params->ctx.addr);
     default:
         break;
     }

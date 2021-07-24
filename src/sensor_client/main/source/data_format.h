@@ -15,4 +15,5 @@ uint16_t string_to_hex_uint16_t(const char *string);
  */
 char* uint8_array_to_string(uint8_t *val, uint16_t len);
 
+char* uint16_to_string(uint16_t value);
 #endif

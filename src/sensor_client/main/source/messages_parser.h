@@ -12,8 +12,9 @@
 // Type of the messages, this will affect to message's parser
 typedef enum {
     PLAIN_TEXT, // simple message with info, errors
-    TASKS, // tasks list
     TIMEOUT,
+    ERROR,
+    TASKS, // tasks list
     GET_STATUS,
     GET_DESCRIPTOR,
     HEX_BUFFER
@@ -27,6 +28,7 @@ typedef struct text_t {
 } text_t;
 
 typedef struct measure_t {
+    uint16_t sensor_prop_id;
     uint16_t addr;
     int value;
 } measure_t;
@@ -77,9 +79,10 @@ void add_message_text_plain(message_t* m, const char* message, ...);
  * @brief Helper function to fill a measure_t struct
  * @param m: message_t struct
  * @param addr: addr to add into measure_t
+ * @param sensor_prop_id: sensor prop id which measure blongs to
  * @param measure: measure to add into measure_t
  */
-void add_measure_to_message(message_t* m, uint16_t addr, int measure);
+void add_measure_to_message(message_t* m, uint16_t addr, uint16_t sensor_prop_id, int measure);
 
 /**
  * @brief Helper function to fill hex_buffer_t

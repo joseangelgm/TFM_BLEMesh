@@ -19,13 +19,8 @@ static const char* TAG = "SensorServer";
 #define CID_ESP     0x02E5
 
 /* Sensor Property ID */
-#define SENSOR_PROPERTY_ID_0        0x0056  /* Sensor temperature */
-
-/* The characteristic of the two device properties is "Temperature 8", which is
- * used to represent a measure of temperature with a unit of 0.5 degree Celsius.
- * Minimum value: -64.0, maximum value: 63.5.
- * A value of 0xFF represents 'value is not known'.
- */
+#define SENSOR_PROPERTY_TEMP 0x0056  /* Sensor temperature */
+#define SENSOR_PROPERTY_HUM  0X0080  /* Sensor humidity */
 
 #define SENSOR_POSITIVE_TOLERANCE   ESP_BLE_MESH_SENSOR_UNSPECIFIED_POS_TOLERANCE
 #define SENSOR_NEGATIVE_TOLERANCE   ESP_BLE_MESH_SENSOR_UNSPECIFIED_NEG_TOLERANCE
@@ -55,8 +50,9 @@ static esp_ble_mesh_cfg_srv_t config_server = {
 };
 
 NET_BUF_SIMPLE_DEFINE_STATIC(temp_sensor_data, 1);
+NET_BUF_SIMPLE_DEFINE_STATIC(hum_sensor_data, 1);
 
-static esp_ble_mesh_sensor_state_t sensor_states[1] = {
+static esp_ble_mesh_sensor_state_t sensor_states[2] = {
     /* Mesh Model Spec:
      * Multiple instances of the Sensor states may be present within the same model,
      * provided that each instance has a unique value of the Sensor Property ID to
@@ -65,16 +61,7 @@ static esp_ble_mesh_sensor_state_t sensor_states[1] = {
      * provided.
      */
     [0] = {
-        /* Mesh Model Spec:
-         * Sensor Property ID is a 2-octet value referencing a device property
-         * that describes the meaning and format of data reported by a sensor.
-         * 0x0000 is prohibited.
-         */
-        .sensor_property_id = SENSOR_PROPERTY_ID_0,
-        /* Mesh Model Spec:
-         * Sensor Descriptor state represents the attributes describing the sensor
-         * data. This state does not change throughout the lifetime of an element.
-         */
+        .sensor_property_id = SENSOR_PROPERTY_TEMP,
         .descriptor.positive_tolerance = SENSOR_POSITIVE_TOLERANCE,
         .descriptor.negative_tolerance = SENSOR_NEGATIVE_TOLERANCE,
         .descriptor.sampling_function = SENSOR_SAMPLE_FUNCTION,
@@ -83,6 +70,17 @@ static esp_ble_mesh_sensor_state_t sensor_states[1] = {
         .sensor_data.format = ESP_BLE_MESH_SENSOR_DATA_FORMAT_A,
         .sensor_data.length = 0, /* 0 represents the length is 1 */
         .sensor_data.raw_value = &temp_sensor_data,
+    },
+    [1] = {
+        .sensor_property_id = SENSOR_PROPERTY_HUM,
+        .descriptor.positive_tolerance = SENSOR_POSITIVE_TOLERANCE,
+        .descriptor.negative_tolerance = SENSOR_NEGATIVE_TOLERANCE,
+        .descriptor.sampling_function = SENSOR_SAMPLE_FUNCTION,
+        .descriptor.measure_period = SENSOR_MEASURE_PERIOD,
+        .descriptor.update_interval = (uint8_t) SENSOR_UPDATE_INTERVAL,
+        .sensor_data.format = ESP_BLE_MESH_SENSOR_DATA_FORMAT_A,
+        .sensor_data.length = 0, /* 0 represents the length is 1 */
+        .sensor_data.raw_value = &hum_sensor_data,
     }
 };
 
@@ -350,11 +348,21 @@ static uint16_t ble_mesh_get_sensor_data(esp_ble_mesh_sensor_state_t *state, uin
         return 0;
     }
 
-    uint8_t temp = get_mean_temperature_data();
-    ESP_LOGW(TAG, "Temperature: %d", temp);
+    uint8_t sensor_data = 0;
+    if(state->sensor_property_id == SENSOR_PROPERTY_TEMP)
+    {
+        sensor_data = si7021_get_mean_temperature_data();
+        ESP_LOGW(TAG, "Temperature: %d ªC", sensor_data);
+    }
+    else
+    {
+        sensor_data = si7021_get_mean_humidity_data();
+        ESP_LOGW(TAG, "Humidity: %d %%", sensor_data);
+    }
 
+    // store sensor data into net_buffer
     net_buf_simple_pull_u8(state->sensor_data.raw_value);
-    net_buf_simple_push_u8(state->sensor_data.raw_value, temp);
+    net_buf_simple_push_u8(state->sensor_data.raw_value, sensor_data);
 
     if (state->sensor_data.length == ESP_BLE_MESH_SENSOR_DATA_ZERO_LEN) {
         /* For zero-length sensor data, the length is 0x7F, and the format is Format B. */
