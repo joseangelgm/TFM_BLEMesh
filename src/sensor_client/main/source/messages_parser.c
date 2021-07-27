@@ -137,7 +137,7 @@ static char* get_hex_buffer_to_json(hex_buffer_t *hex, const char* key)
 
     char *buff = uint8_array_to_string(hex->data, hex->len);
 
-    cJSON *data = cJSON_CreateString(buff);
+    cJSON *data = cJSON_CreateString(buff); free(buff);
     if(data == NULL)
         goto error;
 
@@ -346,7 +346,7 @@ void add_hex_buffer(message_t* m, uint8_t* data, uint16_t len)
  */
 message_t* create_message(message_type_t type)
 {
-    message_t* message = (message_t*) malloc(sizeof(message_t));
+    message_t* message = (message_t *) malloc(sizeof(message_t));
 
     if(type == PLAIN_TEXT || type == TASKS)
     {
