@@ -9,11 +9,6 @@
 esp_err_t si7021_init();
 
 /**
- *  @brief Task: Get temperature data and insert into circular buffer
- */
-void si7021_task_read_temperature(void* params);
-
-/**
  *  @brief get mean temperature data
  */
 uint8_t si7021_get_mean_temperature_data();

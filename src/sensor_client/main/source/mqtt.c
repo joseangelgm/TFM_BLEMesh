@@ -132,7 +132,7 @@ static void task_send_response_mqtt(void* params)
             }
             free_message(message);
         }
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
 }
 

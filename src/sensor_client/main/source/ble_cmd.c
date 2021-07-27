@@ -264,6 +264,7 @@ static void create_task(ble_task_t *ble_task, message_t *messages)
         }
         else
         {
+            free(new_task);
             ESP_LOGE(TAG, "Task - %s - exists!", ble_task->name);
             add_message_text_plain(messages, "Task %s exists", ble_task->name);
         }

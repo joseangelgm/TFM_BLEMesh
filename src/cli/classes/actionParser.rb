@@ -13,9 +13,7 @@ class ActionParser
 
     OPCODES = [
         'GET_DESCRIPTOR',
-        'GET_SETTING',
-        'GET_STATUS',
-        'GET_COLUMN'
+        'GET_STATUS'
     ]
     private_constant :OPCODES
 

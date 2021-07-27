@@ -275,6 +275,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                 ESP_LOGE(TAG, "Invalid Sensor Descriptor Status length %d", param->status_cb.descriptor_status.descriptor->len);
                 return;
             }
+
             if (param->status_cb.descriptor_status.descriptor->len)
             {
                 if(param->status_cb.descriptor_status.descriptor->len == 8)
@@ -396,7 +397,25 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
             case ESP_BLE_MESH_MODEL_OP_SENSOR_STATUS:
                 publish_measure(param);
                 break;
-            default:
+            case ESP_BLE_MESH_MODEL_OP_SENSOR_DESCRIPTOR_GET:
+                if(param->status_cb.descriptor_status.descriptor->len == 8)
+                {
+                    ESP_LOG_BUFFER_HEX("Sensor Descriptor", param->status_cb.descriptor_status.descriptor->data,
+                    param->status_cb.descriptor_status.descriptor->len);
+
+                    messages = create_message(GET_DESCRIPTOR);
+                    add_hex_buffer(messages,
+                            param->status_cb.descriptor_status.descriptor->data,
+                            param->status_cb.descriptor_status.descriptor->len
+                    );
+                    send_message_queue(messages);
+                }
+                else
+                {
+                    messages = create_message(ERROR);
+                    add_message_text_plain(messages, "Incorrect sensor prop id for device 0x%04x", param->params->ctx.addr);
+                    send_message_queue(messages);
+                }
                 break;
         }
         break;

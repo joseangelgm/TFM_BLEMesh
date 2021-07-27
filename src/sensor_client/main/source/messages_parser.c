@@ -8,8 +8,6 @@
 #include "source/messages_parser.h"
 #include "source/data_format.h"
 
-#define ADDR_SIZE 5
-
 static const char *TAG = "MSG_PARSER";
 
 static QueueHandle_t queue_message;
