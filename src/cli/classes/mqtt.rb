@@ -5,7 +5,7 @@ class MQTT
     DEFAULT_TIME = 5
     private_constant :DEFAULT_TIME
 
-    attr_reader :response, :time_to_wait
+    attr_reader :time_to_wait
 
     public
 
@@ -23,17 +23,29 @@ class MQTT
         @topic_sub    = config_mqtt[:topics][:topic_sub]
         @time_to_wait = config_mqtt[:time_to_wait_response] || DEFAULT_TIME
         @client       = PahoMqtt::Client.new({:host => @ip, :port => @port, :ssl => false})
-        @response     = nil
 
     end
 
     def send_json(json)
         puts "Sending json over mqtt..."
+
+        keys_to_wait = wait_keys(json) # condition to stop to receive message
+
         ### Register a callback on message event to display messages
         wait_message = true
         @client.on_message do |message|
-            @response = JSON.parse(message.payload)
-            wait_message = false
+
+            response = JSON.parse(message.payload)
+            pp response
+
+            if keys_to_wait.empty?
+                wait_message = false
+            elsif (response.key? "type" and keys_to_wait.include? response["type"])
+                keys_to_wait.delete(response["type"])
+                wait_message = false
+            elsif response.key? "error_message" and response["error_message"] == true
+                wait_message = false
+            end
         end
 
         ### Register a callback on suback to assert the subcription
@@ -57,7 +69,6 @@ class MQTT
         @client.publish(@topic_pub, JSON[json], false, 1)
 
         Timeout::timeout(@time_to_wait) do
-            puts "Waiting response...".bold.yellow
             while wait_message do
                 sleep 0.001
             end
@@ -65,5 +76,19 @@ class MQTT
 
         ### Calling an explicit disconnect
         @client.disconnect
+    end
+
+    private
+
+    def wait_keys(json)
+        keys = []
+
+        if json.key? "actions"
+            json["actions"].each do |elem|
+                keys << elem["opcode"] if elem["opcode"] != "GET_STATUS"
+            end
+        end
+
+        return keys
     end
 end

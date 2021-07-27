@@ -1,54 +1,5 @@
 #!/usr/bin/env ruby
 
-=begin
-{
-    "actions" : [
-        {
-            "auto"   : true,
-            "addr"   : "00aa",
-            "opcode" : "GET_STATUS",
-            "delay"  : 5,
-            "name"   : "task_get_status"
-        },
-        {
-            "auto"   : true,
-            "addr"   : "00bb",
-            "opcode" : "GET_STATUS",
-            "delay"  : 5,
-            "name"   : "task_get"
-        }
-    ]
-}
-
-{
-    "actions" : [
-        {
-            "auto"   : true,
-            "addr"   : "00aa",
-            "opcode" : "GET_STATUS",
-            "delay"  : 5,
-            "name"   : "task_get_status"
-        }
-    ]
-}
-
-{
-    "actions" : [
-        {
-            "auto"   : true,
-            "addr"   : "00aa",
-            "opcode" : "GET_DESCRIPTOR",
-            "delay"  : 5,
-            "name"   : "task_get_descriptor"
-        }
-    ]
-}
-
-{
-    "bad" : true
-}
-=end
-
 $LOAD_PATH << __dir__ + '/classes/'
 
 require 'optparse'
@@ -160,19 +111,17 @@ config = YAML::load_file(CONFIG_FILE)
 
 if options[:actions]
     begin
-        # create mqtt object
-        mqtt_client = MQTT.new(config[:mqtt_ble])
 
         # Build json
         actions = ActionParser.new
         actions.create_json(editor)
         puts
 
+        # create mqtt object
+        mqtt_client = MQTT.new(config[:mqtt_ble])
+
         # Send json and prompt response
         mqtt_client.send_json(actions.actions_json)
-        json_received = mqtt_client.response
-        puts "#{"Json received".bold.green}"
-        pp json_received
     rescue PahoMqtt::Exception => e
         STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n"\
                     "Ensule that mqtt is powered on."
@@ -194,9 +143,6 @@ if options[:tasks]
 
         # Send json and prompt response
         mqtt_client.send_json(CMD[:tasks])
-        json_received = mqtt_client.response
-        puts "#{"Json received".bold.green}"
-        pp json_received
     rescue PahoMqtt::Exception => e
         STDERR.puts "#{"Exception".bold.red} => #{e.class}: #{e.message}\n"\
                     "Ensule that mqtt is powered on."

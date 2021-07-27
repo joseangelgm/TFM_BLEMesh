@@ -247,12 +247,12 @@ void queue_list_task()
     {
         for(node_t *temp = task_manager->first; temp != NULL; temp = temp->next)
         {
-            add_message_text_plain(tasks_info, "Task: Name -> %s", temp->task->name);
+            add_message_text_plain(tasks_info, false, "Task: Name -> %s", temp->task->name);
         }
     }
     else
     {
-        add_message_text_plain(tasks_info, "There are not tasks running...");
+        add_message_text_plain(tasks_info, false, "There are not tasks running...");
     }
 
     send_message_queue(tasks_info);

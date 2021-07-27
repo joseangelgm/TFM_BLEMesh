@@ -10,10 +10,14 @@ extern void init_tasks_manager();
 extern void queue_list_task();
 
 static const char *TAG = "MQTT";
+
+// Topics to publish
 static const char *PUB_TOPIC_DASH = "/sensors/results/dashboard";
-static const char *PUB_TOPIC_CLI = "/sensors/results/cli";
-static const char *SUB_TOPIC_BLE = "/sensors/actions/ble"; // to execute ble actions
-static const char *SUB_TOPIC_CMD = "/sensors/commands"; // to execute commands
+static const char *PUB_TOPIC_CLI  = "/sensors/results/cli";
+
+// Topics to listen to
+static const char *SUB_TOPIC_BLE  = "/sensors/actions/ble";      // to execute ble actions
+static const char *SUB_TOPIC_CMD  = "/sensors/actions/commands"; // to execute commands
 
 // mqtt client to send messages to PUB_TOPIC
 static esp_mqtt_client_handle_t client_mqtt;

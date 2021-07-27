@@ -209,8 +209,8 @@ static void publish_measure(esp_ble_mesh_sensor_client_cb_param_t *param)
             uint8_t fmt      = ESP_BLE_MESH_GET_SENSOR_DATA_FORMAT(data);
             uint16_t prop_id = ESP_BLE_MESH_GET_SENSOR_DATA_PROPERTY_ID(data, fmt);
 
-            message_t* message = create_message(ERROR);
-            add_message_text_plain(message, "Sensor prop id 0x%04x doesnt exists in sensor addr 0x%04x", prop_id, param->params->ctx.addr);
+            message_t* message = create_message(PLAIN_TEXT);
+            add_message_text_plain(message, true, "Sensor prop id 0x%04x doesnt exists in sensor addr 0x%04x", prop_id, param->params->ctx.addr);
             send_message_queue(message);
 
         }
@@ -278,7 +278,7 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
 
             if (param->status_cb.descriptor_status.descriptor->len)
             {
-                if(param->status_cb.descriptor_status.descriptor->len == 8)
+                if(param->status_cb.descriptor_status.descriptor->len % 8 == 0)
                 {
                     ESP_LOG_BUFFER_HEX("Sensor Descriptor", param->status_cb.descriptor_status.descriptor->data,
                     param->status_cb.descriptor_status.descriptor->len);
@@ -292,8 +292,8 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                 }
                 else
                 {
-                    messages = create_message(ERROR);
-                    add_message_text_plain(messages, "Incorrect sensor prop id for device 0x%04x", param->params->ctx.addr);
+                    messages = create_message(PLAIN_TEXT);
+                    add_message_text_plain(messages, true, "Incorrect sensor prop id for device 0x%04x", param->params->ctx.addr);
                     send_message_queue(messages);
                 }
 
@@ -412,8 +412,8 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
                 }
                 else
                 {
-                    messages = create_message(ERROR);
-                    add_message_text_plain(messages, "Incorrect sensor prop id for device 0x%04x", param->params->ctx.addr);
+                    messages = create_message(PLAIN_TEXT);
+                    add_message_text_plain(messages, true, "Incorrect sensor prop id for device 0x%04x", param->params->ctx.addr);
                     send_message_queue(messages);
                 }
                 break;
@@ -422,8 +422,8 @@ static void ble_mesh_sensor_client_cb(esp_ble_mesh_sensor_client_cb_event_t even
     case ESP_BLE_MESH_SENSOR_CLIENT_TIMEOUT_EVT:
         ESP_LOGI(TAG, "Timeout: opcode 0x%04x, destination 0x%04x", param->params->opcode, param->params->ctx.addr);
 
-        messages = create_message(TIMEOUT);
-        add_message_text_plain(messages,
+        messages = create_message(PLAIN_TEXT);
+        add_message_text_plain(messages, true,
             "Timeout: opcode 0x%04x, destination 0x%04x",
             param->params->opcode, param->params->ctx.addr
         );

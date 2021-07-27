@@ -12,8 +12,6 @@
 // Type of the messages, this will affect to message's parser
 typedef enum {
     PLAIN_TEXT, // simple message with info, errors
-    TIMEOUT,
-    ERROR,
     TASKS, // tasks list
     GET_STATUS,
     GET_DESCRIPTOR,
@@ -23,6 +21,7 @@ typedef enum {
 /*********** Types of messages ******************/
 // plain text: errors, info messages, tasks list
 typedef struct text_t {
+    bool error_message;
     int num_messages;
     char messages[MAX_NUM_MESSAGES][MAX_LENGHT_MESSAGE];
 } text_t;
@@ -70,10 +69,11 @@ void send_message_queue(message_t *message);
 /**
  * @brief Helper function to add a new message
  * @param m: messate_t * struct
+ * @param error_message: if we add an error message
  * @param message: string with format
  * @param args: arguments to include in message
  */
-void add_message_text_plain(message_t* m, const char* message, ...);
+void add_message_text_plain(message_t* m, bool error_message, const char* message, ...);
 
 /**
  * @brief Helper function to fill a measure_t struct

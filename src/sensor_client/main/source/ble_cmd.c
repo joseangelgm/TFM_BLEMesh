@@ -123,7 +123,7 @@ static bool build_task(action_t *ble_task, const cJSON* action, message_t *messa
     else
     {
         ESP_LOGE(TAG, "Error processing a task!");
-        add_message_text_plain(messages, "Error processing a task!");
+        add_message_text_plain(messages, true, "Error processing a task!");
         build = false;
     }
     return build;
@@ -164,13 +164,13 @@ static action_t* parse_build_task(message_t* messages, char *json, int* size)
         }
         else{
             ESP_LOGE(TAG, "Action size is zero");
-            add_message_text_plain(messages, "Action size is zero");
+            add_message_text_plain(messages, true, "Action size is zero");
         }
     }
     else
     {
-        add_message_text_plain(messages, "Action list required");
         ESP_LOGE(TAG, "Action list required");
+        add_message_text_plain(messages, true, "Action list required");
     }
     return acts;
 }
@@ -197,13 +197,13 @@ static void delete_task(ble_task_t *ble_task, message_t *messages)
             remove_task(task);
 
             ESP_LOGI(TAG, "Task %s removed", ble_task->name);
-            add_message_text_plain(messages, "Task %s deleted", ble_task->name);
+            add_message_text_plain(messages, false, "Task %s deleted", ble_task->name);
         }
     }
     else
     {
         ESP_LOGE(TAG, "Task %s doesn't exists. Remove failed", ble_task->name);
-        add_message_text_plain(messages, "Task %s doesn't exists. Remove failed", ble_task->name);
+        add_message_text_plain(messages, true, "Task %s doesn't exists. Remove failed", ble_task->name);
     }
 }
 
@@ -260,13 +260,13 @@ static void create_task(ble_task_t *ble_task, message_t *messages)
             new_task->task_handler = TaskHandle; // save the handler after set it when create the task. IMPORTANT!!
 
             ESP_LOGI(TAG, "Task %s created", ble_task->name);
-            add_message_text_plain(messages, "Task %s created", ble_task->name);
+            add_message_text_plain(messages, false, "Task %s created", ble_task->name);
         }
         else
         {
             free(new_task);
             ESP_LOGE(TAG, "Task - %s - exists!", ble_task->name);
-            add_message_text_plain(messages, "Task %s exists", ble_task->name);
+            add_message_text_plain(messages, true, "Task %s exists", ble_task->name);
         }
     }
     // If it is not auto task, just create it.
@@ -280,7 +280,7 @@ static void create_task(ble_task_t *ble_task, message_t *messages)
         sprintf(buff, "Task 0x%04x, addr 0x%04x", aux.opcode, aux.addr);
 
         xTaskCreate(&task_ble_cmd, buff, 2048, (void *) &aux, 5, NULL);
-        add_message_text_plain(messages, "One-time Task with opcode 0x%04x, addr 0x%04x launched", ble_task->opcode, ble_task->addr);
+        add_message_text_plain(messages, false, "One-time Task with opcode 0x%04x, addr 0x%04x launched", ble_task->opcode, ble_task->addr);
     }
 }
 
@@ -335,6 +335,7 @@ void task_parse_json(void *params)
             else
             {
                 ESP_LOGE(TAG, "Json could be processed or size task equals zero!");
+                add_message_text_plain(messages, false, "Json could be processed or size task equals zero!");
             }
             send_message_queue(messages);
             free(actions);

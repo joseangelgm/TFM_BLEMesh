@@ -47,6 +47,13 @@ static char* text_plain_to_json(text_t *t, char* key)
     if(root == NULL)
         goto error;
 
+
+    cJSON *error_message = cJSON_CreateBool(t->error_message);
+    if(error_message == NULL)
+        goto error;
+
+    cJSON_AddItemToObject(root, "error_message", error_message);
+
     cJSON *messages = cJSON_CreateArray();
     if (messages == NULL)
         goto error;
@@ -66,6 +73,7 @@ static char* text_plain_to_json(text_t *t, char* key)
 
         cJSON_AddItemToArray(messages, message);
     }
+
     json = cJSON_Print(root);
 
 error:
@@ -276,9 +284,12 @@ error:
  * @param message: string with format
  * @param args: arguments to include in message
  */
-void add_message_text_plain(message_t* m, const char* message, ...)
+void add_message_text_plain(message_t* m, bool error_message, const char* message, ...)
 {
     text_t *text = &m->m_content.text_plain;
+
+    if(error_message)
+        text->error_message = error_message;
 
     if(text->num_messages < MAX_NUM_MESSAGES)
     {
@@ -337,10 +348,11 @@ message_t* create_message(message_type_t type)
 {
     message_t* message = (message_t*) malloc(sizeof(message_t));
 
-    if(type == PLAIN_TEXT || type == TASKS || type == TIMEOUT || type == ERROR)
+    if(type == PLAIN_TEXT || type == TASKS)
     {
-        ESP_LOGI(TAG, "Creating PLAIN_TEXT, TASKS, TIMEOUT, ERROR");
+        ESP_LOGI(TAG, "Creating PLAIN_TEXT, TASKS");
         message->m_content.text_plain.num_messages = 0;
+        message->m_content.text_plain.error_message = false;
     }
     else if(type == GET_STATUS)
     {
@@ -370,12 +382,6 @@ char* message_to_json(message_t *message)
 
     if(message->type == TASKS)
         return text_plain_to_json(&message->m_content.text_plain, "tasks");
-
-    if(message->type == TIMEOUT)
-        return text_plain_to_json(&message->m_content.text_plain, "timeout");
-
-    if(message->type == ERROR)
-        return text_plain_to_json(&message->m_content.text_plain, "errors");
 
     if(message->type == GET_STATUS)
         return get_status_to_json(&message->m_content.measure);
