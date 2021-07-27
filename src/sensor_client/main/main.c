@@ -24,15 +24,12 @@ static void set_connected(bool con);
 static void wifi_init_sta(void);
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int event_id, void* event_data);
 
-void app_main(void){
-
-    esp_err_t err = ESP_OK;
-
-    ESP_LOGI(TAG, "Stating...");
-
+void app_main(void)
+{
     /* NVS */
     ESP_LOGI(TAG, "Initialising NVS");
-    err = nvs_flash_init();
+
+    esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
@@ -44,8 +41,6 @@ void app_main(void){
     wifi_init_sta();
     ESP_LOGI(TAG, "Waiting for wifi connection...");
     while(!get_connected());
-
-    //vSemaphoreDelete(xSem_connected); DONT DESTROY. IF LOST WIFI CONNECTION WILL FAIL EVENT HANDLER
 
     // BLE
     ESP_LOGI(TAG, "Initialising Ble and Bluetooth with sensor model -> client");

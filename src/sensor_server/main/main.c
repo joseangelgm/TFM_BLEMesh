@@ -13,25 +13,22 @@ static const char *TAG = "Main-Server";
 
 void app_main(void){
 
-    esp_err_t err = ESP_OK;
-
-    ESP_LOGI(TAG, "Stating...");
-
-    /*********** Init ***********/
+    /* NVS */
     ESP_LOGI(TAG, "Initialising NVS");
-    err = nvs_flash_init();
+
+    esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
     ESP_ERROR_CHECK(err);
 
+
     ESP_LOGI(TAG, "Initialising sensor si7021");
     ESP_ERROR_CHECK(si7021_init());
 
     ESP_LOGI(TAG, "Initialising Ble and Bluetooth with sensor model -> server");
     ESP_ERROR_CHECK(ble_mesh_init());
-    /****************************/
 
     vTaskDelete(NULL);
 }
