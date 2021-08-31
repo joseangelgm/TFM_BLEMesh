@@ -11,6 +11,8 @@ This repository contains all code, research and other resources related with my 
   * **sensor_client:** Contains all the necessary code to build the client firmware.
   * **sensor_server:** Contains all the necessary code to build the server firmware.
 
-### 2. System Flow
+### 2. System Architecture
+![System Architecture](/img/BleMesh-Architecture.png)
 
 ### 3. Client Flow
+![Client Flow](/img/ClientBLEMesh_Flow.png)
