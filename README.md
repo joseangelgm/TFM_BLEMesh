@@ -17,6 +17,6 @@ Every action is launched by the CLI. These actions are processed and transformed
 ![System Architecture](/img/BleMesh-Architecture.png)
 
 ### 3. Client Firmware Flow
-When a task is received by the client, he processed in MQTT module and send the required info to BLE Cmd module using a queue. BLE Cmd check if a task exists with the name given (with the TaskManager module). If not or if it is a one-time task, then it is launched. When the server response, the client receive the message and give the info to message parser module to build a json. This allow the MQTT module to publish this information.
+When a task is received by the client, he processed in MQTT module and send the required info to BLE Cmd module using a queue. BLE Cmd check if a task exists with the name given (with the TaskManager module). If not or if it is a one-time task, then it is launched. When the server response, the client receive the message and give the info to message parser module to build a json. This allow to the MQTT module to publish this information.
 
 ![Client Firmware Flow](/img/ClientBLEMesh_Flow.png)
